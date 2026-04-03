@@ -85,7 +85,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       'ctrl+s': 'chat:stash',
       // Image paste shortcut (platform-specific key defined above)
       [IMAGE_PASTE_KEY]: 'chat:imagePaste',
-      ...(feature('MESSAGE_ACTIONS')
+      ...(true
         ? { 'shift+up': 'chat:messageActions' as const }
         : {}),
       // Voice activation (hold-to-talk). Registered so getShortcutDisplay
@@ -93,7 +93,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       // add a voice:pushToTalk entry (last wins); to disable, use /voice
       // — null-unbinding space hits a pre-existing useKeybinding.ts trap
       // where 'unbound' swallows the event (space dead for typing).
-      ...(feature('VOICE_MODE') ? { space: 'voice:pushToTalk' } : {}),
+      space: 'voice:pushToTalk',
     },
   },
   {
@@ -265,7 +265,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
     },
   },
   // PromptInput unmounts while cursor active — no key conflict.
-  ...(feature('MESSAGE_ACTIONS')
+  ...(true
     ? [
         {
           context: 'MessageActions' as const,

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
+  "assist": {
+    "enabled": false
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+
+      "correctness": {
+        "noUnusedImports": "warn",
+        "noUnusedVariables": "warn",
+        "noInvalidUseBeforeDeclaration": "warn",
+        "useHookAtTopLevel": "error",
+        "useExhaustiveDependencies": "warn",
+        "noConstantCondition": "warn"
+      },
+
+      "suspicious": {
+        "noConsole": "warn",
+        "noDoubleEquals": "warn",
+        "noDuplicateCase": "error",
+        "noFallthroughSwitchClause": "warn",
+        "noRedeclare": "error",
+        "noShadowRestrictedNames": "error"
+      }
+    }
+  },
+  "files": {
+    "includes": ["src/**"]
+  }
+}

@@ -1,11 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-// Conditionally require()'d in LogoV2.tsx behind feature('KAIROS') ||
-// feature('KAIROS_CHANNELS'). No feature() guard here — the whole file
-// tree-shakes via the require pattern when both flags are false (see
-// docs/feature-gating.md). Do NOT import this module statically from
-// unguarded code.
-
-import * as React from 'react';
 import { useState } from 'react';
 import { type ChannelEntry, getAllowedChannels, getHasDevChannels } from '../../bootstrap/state.js';
 import { Box, Text } from '../../ink.js';

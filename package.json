@@ -140,5 +140,30 @@
     "@img/sharp-linuxmusl-x64": "^0.34.2",
     "@img/sharp-win32-arm64": "^0.34.2",
     "@img/sharp-win32-x64": "^0.34.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
+    "@types/bun": "^1.2.0",
+    "@types/diff": "^7.0.0",
+    "@types/lodash-es": "^4.17.0",
+    "@types/node": "^22.0.0",
+    "@types/picomatch": "^3.0.0",
+    "@types/proper-lockfile": "^4.1.0",
+    "@types/qrcode": "^1.5.0",
+    "@types/react": "^19.0.0",
+    "@types/react-reconciler": "^0.28.0",
+    "@types/semver": "^7.5.0",
+    "@types/shell-quote": "^1.7.0",
+    "@types/stack-utils": "^2.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "build": "bun build.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "check": "tsc --noEmit && biome check src/",
+    "start": "bun dist/cli.js"
   }
 }

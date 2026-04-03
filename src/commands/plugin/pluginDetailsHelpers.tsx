@@ -1,11 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-/**
- * Shared helper functions and types for plugin details views
- *
- * Used by both DiscoverPlugins and BrowseMarketplace components.
- */
-
-import * as React from 'react';
 import { ConfigurableShortcutHint } from '../../components/ConfigurableShortcutHint.js';
 import { Byline } from '../../components/design-system/Byline.js';
 import { Box, Text } from '../../ink.js';

@@ -535,7 +535,7 @@ ${CYBER_RISK_INSTRUCTION}`,
           ),
         ]
       : []),
-    ...(feature('TOKEN_BUDGET')
+    ...(true
       ? [
           // Cached unconditionally — the "When the user specifies..." phrasing
           // makes it a no-op with no budget active. Was DANGEROUS_uncached

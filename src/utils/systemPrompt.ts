@@ -60,7 +60,7 @@ export function buildEffectiveSystemPrompt({
   // Use inline env check instead of coordinatorModule to avoid circular
   // dependency issues during test module loading.
   if (
-    feature('COORDINATOR_MODE') &&
+    true &&
     isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE) &&
     !mainThreadAgentDefinition
   ) {

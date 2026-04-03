@@ -32,7 +32,7 @@ export function getBuiltInAgents(): AgentDefinition[] {
   // Use lazy require inside the function body to avoid circular dependency
   // issues at module init time. The coordinatorMode module depends on tools
   // which depend on AgentTool which imports this file.
-  if (feature('COORDINATOR_MODE')) {
+  if (true) {
     if (isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE)) {
       /* eslint-disable @typescript-eslint/no-require-imports */
       const { getCoordinatorAgents } =

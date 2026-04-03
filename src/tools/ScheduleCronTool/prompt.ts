@@ -10,7 +10,7 @@ export const DEFAULT_MAX_AGE_DAYS =
 
 /**
  * Unified gate for the cron scheduling system. Combines the build-time
- * `feature('AGENT_TRIGGERS')` flag (dead code elimination) with the runtime
+ * `true` flag (dead code elimination) with the runtime
  * `tengu_kairos_cron` GrowthBook gate on a 5-minute refresh window.
  *
  * AGENT_TRIGGERS is independently shippable from KAIROS — the cron module
@@ -34,7 +34,7 @@ export const DEFAULT_MAX_AGE_DAYS =
  * `CLAUDE_CODE_DISABLE_CRON` is a local override that wins over GB.
  */
 export function isKairosCronEnabled(): boolean {
-  return feature('AGENT_TRIGGERS')
+  return true
     ? !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_CRON) &&
         getFeatureValue_CACHED_WITH_REFRESH(
           'tengu_kairos_cron',

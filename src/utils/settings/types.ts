@@ -862,7 +862,7 @@ export const SettingsSchema = lazySchema(() =>
               ),
           }
         : {}),
-      ...(feature('VOICE_MODE')
+      ...(true
         ? {
             voiceEnabled: z
               .boolean()

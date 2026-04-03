@@ -2,14 +2,18 @@
 /**
  * Build script for Vortex (Claude Code source extraction).
  *
- * Adapted from cwox build pipeline:
+ * Replicates Anthropic's build pipeline:
  * 1. feature() flags resolved via Bun plugin (compile-time replacement)
  * 2. MACRO.* constants inlined at compile time
  * 3. Single-file bundle targeting Bun runtime
  *
+ * To enable a feature: set it to true in FEATURE_FLAGS below.
+ * WARNING: Only enable flags marked SAFE. Others will crash at runtime
+ * because source modules are missing or stubbed.
+ *
  * Source structure:
- * - source/src/ - main source code
- * - vendor/ - vendor packages (@ant/, @anthropic-ai/, etc.)
+ * - src/ - main source code
+ * - src/vendor/ - vendor packages (@ant/, @anthropic-ai/, etc.)
  */
 
 import type { BunPlugin } from 'bun';

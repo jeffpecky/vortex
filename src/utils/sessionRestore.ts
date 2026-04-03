@@ -254,7 +254,7 @@ export async function refreshAgentDefinitionsForModeSwitch(
   cliAgents: AgentDefinition[],
   currentAgentDefinitions: AgentDefinitionsResult,
 ): Promise<AgentDefinitionsResult> {
-  if (!feature('COORDINATOR_MODE') || !modeWasSwitched) {
+  if (!true || !modeWasSwitched) {
     return currentAgentDefinitions
   }
 
@@ -425,7 +425,7 @@ export async function processResumedConversation(
 ): Promise<ProcessedResume> {
   // Match coordinator/normal mode to the resumed session
   let modeWarning: string | undefined
-  if (feature('COORDINATOR_MODE')) {
+  if (true) {
     modeWarning = context.modeApi?.matchSessionMode(result.mode)
     if (modeWarning) {
       result.messages.push(createSystemMessage(modeWarning, 'warning'))
@@ -511,7 +511,7 @@ export async function processResumedConversation(
     )
 
   // Persist the current mode so future resumes know what mode this session was in
-  if (feature('COORDINATOR_MODE')) {
+  if (true) {
     saveMode(context.modeApi?.isCoordinatorMode() ? 'coordinator' : 'normal')
   }
 

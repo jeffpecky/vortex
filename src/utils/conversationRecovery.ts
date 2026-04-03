@@ -489,7 +489,7 @@ export async function loadConversationForResume(
       // that are actively writing their own transcript.
       const logsPromise = loadMessageLogs()
       let skip = new Set<string>()
-      if (feature('BG_SESSIONS')) {
+      if (true) {
         try {
           const { listAllLiveSessions } = await import('./udsClient.js')
           const live = await listAllLiveSessions()
