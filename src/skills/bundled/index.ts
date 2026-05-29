@@ -1,16 +1,32 @@
 import { feature } from 'bun:bundle'
 import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
+import { registerAlgorithmicArtSkill } from './algorithmicArt.js'
 import { registerBatchSkill } from './batch.js'
+import { registerBrandGuidelinesSkill } from './brandGuidelines.js'
+import { registerCanvasDesignSkill } from './canvasDesign.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
 import { registerDebugSkill } from './debug.js'
+import { registerDocCoauthoringSkill } from './docCoauthoring.js'
+import { registerDocxSkill } from './docx.js'
+import { registerFrontendDesignSkill } from './frontendDesign.js'
+import { registerInternalCommsSkill } from './internalComms.js'
 import { registerKeybindingsSkill } from './keybindings.js'
 import { registerLoremIpsumSkill } from './loremIpsum.js'
+import { registerMcpBuilderSkill } from './mcpBuilder.js'
+import { registerPdfSkill } from './pdf.js'
+import { registerPptxSkill } from './pptx.js'
 import { registerRememberSkill } from './remember.js'
 import { registerSimplifySkill } from './simplify.js'
+import { registerSkillCreatorSkill } from './skillCreator.js'
 import { registerSkillifySkill } from './skillify.js'
+import { registerSlackGifCreatorSkill } from './slackGifCreator.js'
 import { registerStuckSkill } from './stuck.js'
+import { registerThemeFactorySkill } from './themeFactory.js'
 import { registerUpdateConfigSkill } from './updateConfig.js'
 import { registerVerifySkill } from './verify.js'
+import { registerWebArtifactsBuilderSkill } from './webArtifactsBuilder.js'
+import { registerWebappTestingSkill } from './webappTesting.js'
+import { registerXlsxSkill } from './xlsx.js'
 
 /**
  * Initialize all bundled skills.
@@ -32,6 +48,25 @@ export function initBundledSkills(): void {
   registerSimplifySkill()
   registerBatchSkill()
   registerStuckSkill()
+  
+  // Skills from external skills repository
+  registerAlgorithmicArtSkill()
+  registerBrandGuidelinesSkill()
+  registerCanvasDesignSkill()
+  registerDocCoauthoringSkill()
+  registerDocxSkill()
+  registerFrontendDesignSkill()
+  registerInternalCommsSkill()
+  registerMcpBuilderSkill()
+  registerPdfSkill()
+  registerPptxSkill()
+  registerSkillCreatorSkill()
+  registerSlackGifCreatorSkill()
+  registerThemeFactorySkill()
+  registerWebArtifactsBuilderSkill()
+  registerWebappTestingSkill()
+  registerXlsxSkill()
+  
   if (feature('KAIROS') || feature('KAIROS_DREAM')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerDreamSkill } = require('./dream.js')
