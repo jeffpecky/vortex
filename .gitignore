@@ -18,3 +18,4 @@ coverage/
 cli.js.map
 sourcemap-extract.tar.gz
 vendor/
+node_modules
