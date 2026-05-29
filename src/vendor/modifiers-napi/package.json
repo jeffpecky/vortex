@@ -1,0 +1,21 @@
+{
+  "name": "modifiers-napi",
+  "version": "1.0.0",
+  "description": "macOS keyboard modifier detection native addon",
+  "main": "index.ts",
+  "scripts": {
+    "install": "node-gyp rebuild || echo 'Native build failed, using fallback'",
+    "build": "./build.sh",
+    "build:universal": "./build-universal.sh",
+    "test": "bun test",
+    "test:unit": "bun test test/unit.test.ts",
+    "test:integration": "bun test test/integration.test.ts",
+    "test:manual": "bun test/manual.test.ts"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.0.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.0.0"
+  }
+}
