@@ -3,8 +3,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 type ModifiersNapi = {
-  getModifiers(): string[]
-  isModifierPressed(modifier: string): boolean
+  getActiveModifiersJson(): string
 }
 
 let cachedModule: ModifiersNapi | null = null
@@ -41,27 +40,40 @@ function loadModule(): ModifiersNapi | null {
   }
 }
 
-export function getModifiers(): string[] {
+function parseModifiers(): Record<string, boolean> | null {
   const mod = loadModule()
-  if (!mod) {
-    return []
+  if (!mod) return null
+  try {
+    return JSON.parse(mod.getActiveModifiersJson()) as Record<string, boolean>
+  } catch {
+    return null
   }
-  return mod.getModifiers()
+}
+
+export function getModifiers(): string[] {
+  const mods = parseModifiers()
+  if (!mods) return []
+  return Object.entries(mods)
+    .filter(([, pressed]) => pressed)
+    .map(([name]) => name)
 }
 
 export function isModifierPressed(modifier: string): boolean {
-  const mod = loadModule()
-  if (!mod) {
-    return false
-  }
-  return mod.isModifierPressed(modifier)
+  const mods = parseModifiers()
+  if (!mods) return false
+  return mods[modifier] ?? false
 }
 
 /**
  * Pre-warm the native module by loading it in advance.
  * Call this early (e.g., at startup) to avoid delay on first use.
  */
+export function getActiveModifiersJson(): string {
+  const mod = loadModule()
+  if (!mod) return '{}'
+  return mod.getActiveModifiersJson()
+}
+
 export function prewarm(): void {
-  // Just call loadModule to cache it
   loadModule()
 }
