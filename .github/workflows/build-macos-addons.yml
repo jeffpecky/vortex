@@ -67,16 +67,11 @@ jobs:
           echo "Checking for dynamic library dependencies..."
           otool -L build/${{ matrix.addon.node_name }}.node || true
 
-      - name: Create vendor directory structure
+      - name: Create vendor directory structure and copy binary
         shell: bash
         run: |
           mkdir -p vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin
-
-      - name: Copy binary to vendor
-        shell: bash
-        working-directory: ${{ matrix.addon.path }}
-        run: |
-          cp build/${{ matrix.addon.node_name }}.node ../../../../../vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin/
+          cp ${{ matrix.addon.path }}/build/${{ matrix.addon.node_name }}.node vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
