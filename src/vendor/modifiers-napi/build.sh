@@ -18,8 +18,9 @@ fi
 
 echo "Building for architecture: $ARCH (Node: $NODE_ARCH, Swift: $SWIFT_TARGET)"
 
-# Create build directory
-mkdir -p build
+# Run node-gyp configure first so gyp sets up its build directory
+echo "Configuring Node addon build..."
+npx node-gyp configure --arch="$NODE_ARCH"
 
 # Compile Swift code to static library
 echo "Compiling Swift to static library..."
@@ -29,9 +30,17 @@ swiftc -static -emit-library \
     -o "build/libmodifiers_static.a" \
     src/ModifiersDetector.swift src/bridge.swift
 
-# Build Node addon with static linking
+# Verify Swift library was created
+if [ ! -f "build/libmodifiers_static.a" ]; then
+    echo "ERROR: Swift library was not created!"
+    ls -la build/ || true
+    exit 1
+fi
+echo "Swift library created: $(ls -lh build/libmodifiers_static.a | awk '{print $5}')"
+
+# Build Node addon with static linking (build step only, configure already done)
 echo "Building Node addon with static linking..."
-npx node-gyp rebuild --arch="$NODE_ARCH"
+npx node-gyp build --arch="$NODE_ARCH"
 
 # Copy to final location
 echo "Copying to build directory..."
