@@ -16,7 +16,7 @@ for ARCH in arm64 x86_64; do
     install_name_tool -id "@rpath/libmodifiers.dylib" \
         "$OUT_DIR/libmodifiers-${ARCH}.dylib"
 
-    LDFLAGS="-L$OUT_DIR -lmodifiers-${ARCH}" \
+    LDFLAGS="-L$(pwd)/$OUT_DIR -lmodifiers-${ARCH}" \
     npx node-gyp rebuild --arch=$NODE_ARCH
 
     cp "build/Release/modifiers.node" "$OUT_DIR/modifiers-${ARCH}.node"

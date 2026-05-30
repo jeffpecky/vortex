@@ -13,7 +13,7 @@ swiftc -O -whole-module-optimization \
 install_name_tool -id "@rpath/libmodifiers.dylib" \
     "$OUT_DIR/libmodifiers.dylib"
 
-LDFLAGS="-L$OUT_DIR -lmodifiers" \
+LDFLAGS="-L$(pwd)/$OUT_DIR -lmodifiers" \
 npx node-gyp rebuild --arch=$ARCH
 
 cp "build/Release/modifiers.node" "$OUT_DIR/modifiers.node"
