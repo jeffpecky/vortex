@@ -13,7 +13,6 @@ swiftc -O -whole-module-optimization \
 install_name_tool -id "@rpath/libcomputer_use.dylib" \
     "$OUT_DIR/libcomputer_use.dylib"
 
-LDFLAGS="-L$(pwd)/$OUT_DIR -lcomputer_use" \
 npx node-gyp rebuild --arch=$ARCH
 
 cp "build/Release/computer_use.node" "$OUT_DIR/computer_use.node"

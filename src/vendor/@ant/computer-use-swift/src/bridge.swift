@@ -41,7 +41,13 @@ public func screenshot_capture_excluding(
     _ displayId: Int32
 ) -> UnsafeMutablePointer<CChar>? {
     // Parse allowlist JSON if present, otherwise pass empty array
-    let allowedList: [String] = []
+    var allowedList: [String] = []
+    if let cStr = allowedBundleIdsJson,
+       let jsonStr = String(validatingUTF8: cStr),
+       let data = jsonStr.data(using: .utf8),
+       let parsed = try? JSONSerialization.jsonObject(with: data) as? [String] {
+        allowedList = parsed
+    }
     let json = ComputerUseSwiftCore.captureExcluding(allowedList, quality, targetW, targetH, displayId)
     return strdup(json)
 }

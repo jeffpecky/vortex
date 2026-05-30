@@ -21,8 +21,9 @@
       "src/*": ["./src/*"],
       "@ant/*": ["./src/vendor/@ant/*"],
       "@anthropic-ai/*": ["./src/vendor/@anthropic-ai/*"],
+      "audio-capture-napi": ["./src/vendor/audio-capture-src"],
       "color-diff-napi": ["./src/vendor/color-diff-napi"],
-      "modifiers-napi": ["./src/vendor/modifiers-napi"],
+      "modifiers-napi": ["./src/vendor/modifiers-napi-src"],
       "bun:bundle": ["./shims/bun-bundle.d.ts"]
     },
     "types": ["bun-types"]

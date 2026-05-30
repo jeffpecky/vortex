@@ -16,7 +16,6 @@ for ARCH in arm64 x86_64; do
     install_name_tool -id "@rpath/libcomputer_use.dylib" \
         "$OUT_DIR/libcomputer_use-${ARCH}.dylib"
 
-    LDFLAGS="-L$(pwd)/$OUT_DIR -lcomputer_use-${ARCH}" \
     npx node-gyp rebuild --arch=$NODE_ARCH
 
     cp "build/Release/computer_use.node" "$OUT_DIR/computer_use-${ARCH}.node"

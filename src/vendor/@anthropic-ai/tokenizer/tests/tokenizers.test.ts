@@ -1,4 +1,4 @@
-import { countTokens } from '@anthropic-ai/tokenizer';
+import { countTokens } from '../index.ts';
 
 describe('countTokens', () => {
   test('small text', async () => {

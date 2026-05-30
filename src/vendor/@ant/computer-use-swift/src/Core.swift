@@ -8,7 +8,8 @@ public class ComputerUseSwiftCore {
     public static func getDisplaySize(_ displayId: Int32) -> String {
         // Return JSON with width, height, scaleFactor for target display
         let screens = NSScreen.screens
-        let screen = screens.first // Simplification: return primary screen size
+        let index = Int(displayId)
+        let screen = (index >= 0 && index < screens.count) ? screens[index] : screens.first
         let width = screen?.frame.width ?? 1920
         let height = screen?.frame.height ?? 1080
         let scaleFactor = screen?.backingScaleFactor ?? 1.0
