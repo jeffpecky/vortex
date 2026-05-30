@@ -91,7 +91,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ matrix.addon.path }}
-        run: bun install
+        run: bun install --ignore-scripts
 
       - name: Build Node addon
         working-directory: ${{ matrix.addon.path }}
