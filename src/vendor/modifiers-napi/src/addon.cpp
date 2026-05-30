@@ -67,7 +67,7 @@ Napi::Value GetActiveModifiersJson(const Napi::CallbackInfo& info) {
 NAPI_MODULE_INIT() {
     LoadSwiftLibrary();
     
-    Napi::Object exports = Napi::Object::New(env);
-    exports.Set("getActiveModifiersJson", Napi::Function::New(env, GetActiveModifiersJson));
+    Napi::Object exportsObj(env, exports);
+    exportsObj.Set("getActiveModifiersJson", Napi::Function::New(env, GetActiveModifiersJson));
     return exports;
 }
