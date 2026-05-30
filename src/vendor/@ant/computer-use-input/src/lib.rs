@@ -1,3 +1,4 @@
+mod app;
 use napi_derive::napi;
 use napi::{Result, Error, Status};
 use enigo::{Enigo, MouseControllable, KeyboardControllable, Key, MouseButton, Coordinate};
@@ -142,4 +143,9 @@ pub async fn type_text(text: String) -> Result<()> {
     let mut enigo = ENIGO.lock().map_err(|_| Error::new(Status::GenericFailure, "Lock failed"))?;
     enigo.key_sequence(&text);
     Ok(())
+}
+
+#[napi]
+pub fn get_frontmost_app_info() -> Result<Option<AppInfo>> {
+    app::get_frontmost_app_info()
 }
