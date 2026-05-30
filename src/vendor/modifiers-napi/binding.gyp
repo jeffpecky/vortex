@@ -7,7 +7,7 @@
         "<!(node -p \"require('node-addon-api').include_dir\")"
       ],
       "libraries": [
-        "../build/libmodifiers_static.a"
+        "<(module_root_dir)/build/libmodifiers_static.a"
       ],
       "cflags!": ["-fno-exceptions"],
       "cflags_cc!": ["-fno-exceptions"],
