@@ -1,0 +1,18 @@
+{
+  "name": "@ant/computer-use-input",
+  "version": "1.0.0",
+  "napi": {
+    "name": "computer-use-input",
+    "package": {
+      "name": "computer-use-input"
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0"
+  }
+}
