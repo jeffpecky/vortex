@@ -1,18 +1,41 @@
 #!/bin/bash
 set -euo pipefail
 
-ARCH=$(uname -m)
-OUT_DIR="build"
-mkdir -p "$OUT_DIR"
+# Get architecture from argument or detect from system
+ARCH=${1:-$(uname -m)}
 
-swiftc -O -whole-module-optimization \
+# Map architecture names
+if [ "$ARCH" = "x86_64" ]; then
+    NODE_ARCH="x64"
+    SWIFT_TARGET="x86_64-apple-macosx11.0"
+elif [ "$ARCH" = "arm64" ]; then
+    NODE_ARCH="arm64"
+    SWIFT_TARGET="arm64-apple-macosx11.0"
+else
+    echo "Unsupported architecture: $ARCH"
+    exit 1
+fi
+
+echo "Building for architecture: $ARCH (Node: $NODE_ARCH, Swift: $SWIFT_TARGET)"
+
+# Create build directory
+mkdir -p build
+
+# Compile Swift code to static library
+echo "Compiling Swift to static library..."
+swiftc -static -emit-library \
+    -target "$SWIFT_TARGET" \
     -module-name ModifiersDetector \
-    -emit-library -o "$OUT_DIR/libmodifiers.dylib" \
+    -o "build/libmodifiers_static.a" \
     src/ModifiersDetector.swift src/bridge.swift
 
-install_name_tool -id "@rpath/libmodifiers.dylib" \
-    "$OUT_DIR/libmodifiers.dylib"
+# Build Node addon with static linking
+echo "Building Node addon with static linking..."
+npx node-gyp rebuild --arch="$NODE_ARCH"
 
-npx node-gyp rebuild --arch=$ARCH
+# Copy to final location
+echo "Copying to build directory..."
+cp "build/Release/modifiers.node" "build/modifiers.node"
 
-cp "build/Release/modifiers.node" "$OUT_DIR/modifiers.node"
+echo "Build complete: build/modifiers.node"
+echo "This is a single file with Swift code statically linked."

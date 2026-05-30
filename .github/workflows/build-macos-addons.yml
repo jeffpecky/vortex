@@ -21,15 +21,20 @@ jobs:
         addon:
           - name: computer-use-swift
             path: src/vendor/@ant/computer-use-swift
-            output: prebuilds/computer_use.node
-            dylib: prebuilds/libcomputer_use.dylib
+            node_name: computer_use
           - name: modifiers-napi
             path: src/vendor/modifiers-napi
-            output: build/modifiers.node
-            dylib: build/libmodifiers.dylib
+            node_name: modifiers
+        arch:
+          - runner: macos-latest
+            target: arm64
+            swift_arch: arm64
+          - runner: macos-13
+            target: x64
+            swift_arch: x86_64
 
-    name: Build ${{ matrix.addon.name }}
-    runs-on: macos-latest
+    name: Build ${{ matrix.addon.name }} (${{ matrix.arch.target }}-darwin)
+    runs-on: ${{ matrix.arch.runner }}
 
     steps:
       - uses: actions/checkout@v4
@@ -48,30 +53,36 @@ jobs:
         working-directory: ${{ matrix.addon.path }}
         run: bun install
 
-      - name: Build universal binary
-        working-directory: ${{ matrix.addon.path }}
-        run: ./build-universal.sh
-
-      - name: Verify build outputs
+      - name: Build with static linking
         working-directory: ${{ matrix.addon.path }}
         run: |
-          ls -lh ${{ matrix.addon.output }}
-          ls -lh ${{ matrix.addon.dylib }}
-          file ${{ matrix.addon.output }}
-          file ${{ matrix.addon.dylib }}
+          chmod +x build.sh
+          ./build.sh ${{ matrix.arch.swift_arch }}
 
-      - name: Upload addon artifact
+      - name: Verify build output
+        working-directory: ${{ matrix.addon.path }}
+        run: |
+          ls -lh build/${{ matrix.addon.node_name }}.node
+          file build/${{ matrix.addon.node_name }}.node
+          echo "Checking for dynamic library dependencies..."
+          otool -L build/${{ matrix.addon.node_name }}.node || true
+
+      - name: Create vendor directory structure
+        shell: bash
+        run: |
+          mkdir -p vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin
+
+      - name: Copy binary to vendor
+        shell: bash
+        working-directory: ${{ matrix.addon.path }}
+        run: |
+          cp build/${{ matrix.addon.node_name }}.node ../../../../../vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin/
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.addon.name }}-addon
-          path: ${{ matrix.addon.path }}/${{ matrix.addon.output }}
-          if-no-files-found: error
-
-      - name: Upload dylib artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.addon.name }}-dylib
-          path: ${{ matrix.addon.path }}/${{ matrix.addon.dylib }}
+          name: ${{ matrix.addon.name }}-${{ matrix.arch.target }}-darwin
+          path: vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin/${{ matrix.addon.node_name }}.node
           if-no-files-found: error
 
   test:
@@ -86,29 +97,37 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Download computer-use-swift artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: computer-use-swift-addon
-          path: src/vendor/@ant/computer-use-swift/prebuilds/
+          path: vendor-artifacts
 
-      - name: Download computer-use-swift dylib
-        uses: actions/download-artifact@v4
-        with:
-          name: computer-use-swift-dylib
-          path: src/vendor/@ant/computer-use-swift/prebuilds/
-
-      - name: Download modifiers-napi artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: modifiers-napi-addon
-          path: src/vendor/modifiers-napi/build/
-
-      - name: Download modifiers-napi dylib
-        uses: actions/download-artifact@v4
-        with:
-          name: modifiers-napi-dylib
-          path: src/vendor/modifiers-napi/build/
+      - name: Organize binaries
+        shell: bash
+        run: |
+          mkdir -p vendor/computer-use-swift vendor/modifiers-napi
+          
+          # Organize computer-use-swift
+          for dir in vendor-artifacts/computer-use-swift-*; do
+            if [ -d "$dir" ]; then
+              arch_platform=$(basename "$dir" | sed 's/computer-use-swift-//')
+              mkdir -p "vendor/computer-use-swift/$arch_platform"
+              cp "$dir/computer_use.node" "vendor/computer-use-swift/$arch_platform/"
+            fi
+          done
+          
+          # Organize modifiers-napi
+          for dir in vendor-artifacts/modifiers-napi-*; do
+            if [ -d "$dir" ]; then
+              arch_platform=$(basename "$dir" | sed 's/modifiers-napi-//')
+              mkdir -p "vendor/modifiers-napi/$arch_platform"
+              cp "$dir/modifiers.node" "vendor/modifiers-napi/$arch_platform/"
+            fi
+          done
+          
+          # Show final structure
+          echo "Final vendor structure:"
+          find vendor -type f
 
       - name: Install dependencies
         run: bun install
