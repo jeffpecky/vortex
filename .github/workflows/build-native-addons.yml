@@ -1,0 +1,154 @@
+name: Build Native Addons
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/vendor/@ant/computer-use-input/**'
+      - '.github/workflows/build-native-addons.yml'
+  pull_request:
+    paths:
+      - 'src/vendor/@ant/computer-use-input/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            arch: x64
+            platform: win32
+          - host: macos-13
+            target: x86_64-apple-darwin
+            arch: x64
+            platform: darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            arch: arm64
+            platform: darwin
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            arch: x64
+            platform: linux
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            arch: arm64
+            platform: linux
+
+    name: Build ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.host }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry/index
+          key: ${{ matrix.settings.target }}-cargo-registry
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: src/vendor/@ant/computer-use-input/target
+          key: ${{ matrix.settings.target }}-cargo-build-${{ hashFiles('src/vendor/@ant/computer-use-input/Cargo.lock') }}
+
+      - name: Install dependencies
+        working-directory: src/vendor/@ant/computer-use-input
+        run: bun install
+
+      - name: Build native addon (Linux ARM64)
+        if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
+        working-directory: src/vendor/@ant/computer-use-input
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          bun run build --target ${{ matrix.settings.target }}
+
+      - name: Build native addon (Other platforms)
+        if: matrix.settings.target != 'aarch64-unknown-linux-gnu'
+        working-directory: src/vendor/@ant/computer-use-input
+        run: bun run build --target ${{ matrix.settings.target }}
+
+      - name: Create vendor directory structure
+        shell: bash
+        run: |
+          mkdir -p vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}
+
+      - name: Copy binary to vendor (Windows)
+        if: matrix.settings.platform == 'win32'
+        shell: bash
+        working-directory: src/vendor/@ant/computer-use-input
+        run: |
+          cp computer-use-input.node ../../../../../vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
+
+      - name: Copy binary to vendor (Unix)
+        if: matrix.settings.platform != 'win32'
+        shell: bash
+        working-directory: src/vendor/@ant/computer-use-input
+        run: |
+          cp computer-use-input.node ../../../../../vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: computer-use-input-${{ matrix.settings.arch }}-${{ matrix.settings.platform }}
+          path: vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
+          if-no-files-found: error
+
+  test:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: vendor/computer-use-input-artifacts
+
+      - name: Organize binaries
+        shell: bash
+        run: |
+          mkdir -p vendor/computer-use-input
+          for dir in vendor/computer-use-input-artifacts/*; do
+            if [ -d "$dir" ]; then
+              platform_dir=$(basename "$dir" | sed 's/computer-use-input-//')
+              mkdir -p "vendor/computer-use-input/$platform_dir"
+              cp "$dir/computer-use-input.node" "vendor/computer-use-input/$platform_dir/"
+            fi
+          done
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run tests
+        run: bun test __tests__/computer-use-input.test.ts

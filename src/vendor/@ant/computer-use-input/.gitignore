@@ -1,0 +1,4 @@
+target/
+*.node
+!computer-use-input.node
+node_modules/

@@ -5,6 +5,25 @@
 using GetActiveModifiersJsonFunc = char* (*)();
 using FreeStringFunc = void (*)(char*);
 
+static void* g_dylib_handle = nullptr;
+
+static void LoadSwiftLibrary() {
+    if (g_dylib_handle) return;
+    
+    // Try multiple paths to find the Swift dylib
+    const char* paths[] = {
+        "libmodifiers.dylib",
+        "./libmodifiers.dylib",
+        "../build/libmodifiers.dylib",
+        nullptr
+    };
+    
+    for (int i = 0; paths[i] != nullptr; i++) {
+        g_dylib_handle = dlopen(paths[i], RTLD_LAZY | RTLD_GLOBAL);
+        if (g_dylib_handle) break;
+    }
+}
+
 static GetActiveModifiersJsonFunc resolveGetJson() {
     static auto func = reinterpret_cast<GetActiveModifiersJsonFunc>(
         dlsym(RTLD_DEFAULT, "ModifiersDetector_getActiveModifiersJson"));
@@ -46,6 +65,8 @@ Napi::Value GetActiveModifiersJson(const Napi::CallbackInfo& info) {
 }
 
 NAPI_MODULE_INIT() {
+    LoadSwiftLibrary();
+    
     Napi::Object exports = Napi::Object::New(env);
     exports.Set("getActiveModifiersJson", Napi::Function::New(env, GetActiveModifiersJson));
     return exports;

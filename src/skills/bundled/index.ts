@@ -5,6 +5,7 @@ import { registerBatchSkill } from './batch.js'
 import { registerBrandGuidelinesSkill } from './brandGuidelines.js'
 import { registerCanvasDesignSkill } from './canvasDesign.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
+import { registerCloudflareDeploySkill } from './cloudflareDeploy.js'
 import { registerDebugSkill } from './debug.js'
 import { registerDocCoauthoringSkill } from './docCoauthoring.js'
 import { registerDocxSkill } from './docx.js'
@@ -13,9 +14,13 @@ import { registerInternalCommsSkill } from './internalComms.js'
 import { registerKeybindingsSkill } from './keybindings.js'
 import { registerLoremIpsumSkill } from './loremIpsum.js'
 import { registerMcpBuilderSkill } from './mcpBuilder.js'
+import { registerNetlifyDeploySkill } from './netlifyDeploy.js'
 import { registerPdfSkill } from './pdf.js'
 import { registerPptxSkill } from './pptx.js'
 import { registerRememberSkill } from './remember.js'
+import { registerRenderDeploySkill } from './renderDeploy.js'
+import { registerSecurityBestPracticesSkill } from './securityBestPractices.js'
+import { registerSecurityThreatModelSkill } from './securityThreatModel.js'
 import { registerSimplifySkill } from './simplify.js'
 import { registerSkillCreatorSkill } from './skillCreator.js'
 import { registerSkillifySkill } from './skillify.js'
@@ -23,6 +28,7 @@ import { registerSlackGifCreatorSkill } from './slackGifCreator.js'
 import { registerStuckSkill } from './stuck.js'
 import { registerThemeFactorySkill } from './themeFactory.js'
 import { registerUpdateConfigSkill } from './updateConfig.js'
+import { registerVercelDeploySkill } from './vercelDeploy.js'
 import { registerVerifySkill } from './verify.js'
 import { registerWebArtifactsBuilderSkill } from './webArtifactsBuilder.js'
 import { registerWebappTestingSkill } from './webappTesting.js'
@@ -53,16 +59,22 @@ export function initBundledSkills(): void {
   registerAlgorithmicArtSkill()
   registerBrandGuidelinesSkill()
   registerCanvasDesignSkill()
+  registerCloudflareDeploySkill()
   registerDocCoauthoringSkill()
   registerDocxSkill()
   registerFrontendDesignSkill()
   registerInternalCommsSkill()
   registerMcpBuilderSkill()
+  registerNetlifyDeploySkill()
   registerPdfSkill()
   registerPptxSkill()
+  registerRenderDeploySkill()
+  registerSecurityBestPracticesSkill()
+  registerSecurityThreatModelSkill()
   registerSkillCreatorSkill()
   registerSlackGifCreatorSkill()
   registerThemeFactorySkill()
+  registerVercelDeploySkill()
   registerWebArtifactsBuilderSkill()
   registerWebappTestingSkill()
   registerXlsxSkill()

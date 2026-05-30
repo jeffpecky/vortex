@@ -4,7 +4,9 @@ set -euo pipefail
 # Find platform/arch
 PLATFORM=$(node -p "process.platform")
 ARCH=$(node -p "process.arch")
-TARGET_DIR="../../../../vendor/@ant/computer-use-input/${PLATFORM}-${ARCH}"
+# Binaries go in vendor/computer-use-input/<arch>-<platform>/ at repo root
+# From src/vendor/@ant/computer-use-input/, go up 4 levels to root
+TARGET_DIR="../../../../vendor/computer-use-input/${ARCH}-${PLATFORM}"
 
 echo "Building for ${PLATFORM}-${ARCH}..."
 

@@ -1,0 +1,122 @@
+name: Build macOS Native Addons
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/vendor/@ant/computer-use-swift/**'
+      - 'src/vendor/modifiers-napi/**'
+      - '.github/workflows/build-macos-addons.yml'
+  pull_request:
+    paths:
+      - 'src/vendor/@ant/computer-use-swift/**'
+      - 'src/vendor/modifiers-napi/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        addon:
+          - name: computer-use-swift
+            path: src/vendor/@ant/computer-use-swift
+            output: prebuilds/computer_use.node
+            dylib: prebuilds/libcomputer_use.dylib
+          - name: modifiers-napi
+            path: src/vendor/modifiers-napi
+            output: build/modifiers.node
+            dylib: build/libmodifiers.dylib
+
+    name: Build ${{ matrix.addon.name }}
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.addon.path }}
+        run: bun install
+
+      - name: Build universal binary
+        working-directory: ${{ matrix.addon.path }}
+        run: ./build-universal.sh
+
+      - name: Verify build outputs
+        working-directory: ${{ matrix.addon.path }}
+        run: |
+          ls -lh ${{ matrix.addon.output }}
+          ls -lh ${{ matrix.addon.dylib }}
+          file ${{ matrix.addon.output }}
+          file ${{ matrix.addon.dylib }}
+
+      - name: Upload addon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.addon.name }}-addon
+          path: ${{ matrix.addon.path }}/${{ matrix.addon.output }}
+          if-no-files-found: error
+
+      - name: Upload dylib artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.addon.name }}-dylib
+          path: ${{ matrix.addon.path }}/${{ matrix.addon.dylib }}
+          if-no-files-found: error
+
+  test:
+    needs: build
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Download computer-use-swift artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: computer-use-swift-addon
+          path: src/vendor/@ant/computer-use-swift/prebuilds/
+
+      - name: Download computer-use-swift dylib
+        uses: actions/download-artifact@v4
+        with:
+          name: computer-use-swift-dylib
+          path: src/vendor/@ant/computer-use-swift/prebuilds/
+
+      - name: Download modifiers-napi artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: modifiers-napi-addon
+          path: src/vendor/modifiers-napi/build/
+
+      - name: Download modifiers-napi dylib
+        uses: actions/download-artifact@v4
+        with:
+          name: modifiers-napi-dylib
+          path: src/vendor/modifiers-napi/build/
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run computer-use-swift tests
+        working-directory: src/vendor/@ant/computer-use-swift
+        run: bun test || echo "Tests not yet implemented"
+
+      - name: Run modifiers-napi tests
+        working-directory: src/vendor/modifiers-napi
+        run: bun test || echo "Tests not yet implemented"

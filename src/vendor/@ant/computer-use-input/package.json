@@ -8,8 +8,9 @@
     }
   },
   "scripts": {
-    "build": "napi build --platform --release",
-    "build:debug": "napi build --platform",
+    "build": "napi build --release",
+    "build:all-platforms": "napi build --platform --release",
+    "build:debug": "napi build",
     "test": "bun test"
   },
   "devDependencies": {
