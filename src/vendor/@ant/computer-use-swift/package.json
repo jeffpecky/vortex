@@ -1,0 +1,15 @@
+{
+  "name": "@ant/computer-use-swift",
+  "version": "1.0.0",
+  "dependencies": {
+    "node-addon-api": "^7.0.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.0.0"
+  },
+  "scripts": {
+    "install": "npx node-gyp rebuild || echo 'Native build failed, using fallback'",
+    "build": "./build.sh",
+    "build:universal": "./build-universal.sh"
+  }
+}
