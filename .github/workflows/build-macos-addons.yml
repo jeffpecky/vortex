@@ -52,19 +52,41 @@ jobs:
       - name: Build Swift static library first
         working-directory: ${{ matrix.addon.path }}
         run: |
+          echo "=== Building Swift static library ==="
+          echo "Addon: ${{ matrix.addon.name }}"
+          echo "Architecture: ${{ matrix.arch.swift_arch }}"
+          echo "Working directory: $(pwd)"
+          
           mkdir -p build
+          
           if [ "${{ matrix.addon.name }}" = "computer-use-swift" ]; then
-            swiftc -static -emit-library \
+            echo "Building computer-use-swift..."
+            swiftc -emit-library -static \
               -target ${{ matrix.arch.swift_arch }}-apple-macosx11.0 \
               -module-name ComputerUseSwiftCore \
               -o "build/libcomputer_use_static.a" \
               src/Core.swift src/bridge.swift
+            EXPECTED_LIB="build/libcomputer_use_static.a"
           else
-            swiftc -static -emit-library \
+            echo "Building modifiers-napi..."
+            swiftc -emit-library -static \
               -target ${{ matrix.arch.swift_arch }}-apple-macosx11.0 \
               -module-name ModifiersDetector \
               -o "build/libmodifiers_static.a" \
               src/ModifiersDetector.swift src/bridge.swift
+            EXPECTED_LIB="build/libmodifiers_static.a"
+          fi
+          
+          echo "=== Verifying Swift library was created ==="
+          if [ -f "$EXPECTED_LIB" ]; then
+            echo "✓ Library exists: $EXPECTED_LIB"
+            ls -lh "$EXPECTED_LIB"
+            file "$EXPECTED_LIB"
+          else
+            echo "✗ Library NOT found: $EXPECTED_LIB"
+            echo "Contents of build directory:"
+            ls -la build/ || echo "build/ directory doesn't exist"
+            exit 1
           fi
 
       - name: Install dependencies
