@@ -49,15 +49,38 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Build Swift static library first
+        working-directory: ${{ matrix.addon.path }}
+        run: |
+          mkdir -p build
+          if [ "${{ matrix.addon.name }}" = "computer-use-swift" ]; then
+            swiftc -static -emit-library \
+              -target ${{ matrix.arch.swift_arch }}-apple-macosx11.0 \
+              -module-name ComputerUseSwiftCore \
+              -o "build/libcomputer_use_static.a" \
+              src/Core.swift src/bridge.swift
+          else
+            swiftc -static -emit-library \
+              -target ${{ matrix.arch.swift_arch }}-apple-macosx11.0 \
+              -module-name ModifiersDetector \
+              -o "build/libmodifiers_static.a" \
+              src/ModifiersDetector.swift src/bridge.swift
+          fi
+
       - name: Install dependencies
         working-directory: ${{ matrix.addon.path }}
         run: bun install
 
-      - name: Build with static linking
+      - name: Build Node addon
         working-directory: ${{ matrix.addon.path }}
         run: |
-          chmod +x build.sh
-          ./build.sh ${{ matrix.arch.swift_arch }}
+          if [ "${{ matrix.arch.target }}" = "arm64" ]; then
+            npx node-gyp rebuild --arch=arm64
+          else
+            npx node-gyp rebuild --arch=x64
+          fi
+          # Copy built addon to build directory
+          cp "build/Release/${{ matrix.addon.node_name }}.node" "build/${{ matrix.addon.node_name }}.node"
 
       - name: Verify build output
         working-directory: ${{ matrix.addon.path }}
