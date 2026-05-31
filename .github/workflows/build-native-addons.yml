@@ -90,16 +90,12 @@ jobs:
         working-directory: src/vendor/@ant/computer-use-input
         run: |
           sudo dpkg --add-architecture arm64
-          # Restrict all Ubuntu repos to amd64 to avoid 404s on security.ubuntu.com
-          # Only add [arch=amd64] to lines without an existing arch specifier
+          # Restrict azure.archive.ubuntu.com to amd64 (already in sources.list with [arch=amd64])
           sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' /etc/apt/sources.list
-          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-            sudo sed -i 's/^Architectures:.*/Architectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
-            if ! grep -q 'Architectures:' /etc/apt/sources.list.d/ubuntu.sources; then
-              echo "Architectures: amd64" | sudo tee -a /etc/apt/sources.list.d/ubuntu.sources > /dev/null
-            fi
-          fi
-          sudo find /etc/apt/sources.list.d -name '*.sources' -o -name '*.list' | xargs -I {} sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' {}
+          # Remove security.ubuntu.com from deb822 sources (no arm64 packages → 404)
+          sudo sed -i '/security.ubuntu.com/,/^$/d' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
+          # Apply [arch=amd64] to any remaining one-line-format .list files (skip lines with existing arch)
+          sudo find /etc/apt/sources.list.d -name '*.list' | xargs -I {} sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' {} 2>/dev/null || true
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libxdo-dev:arm64
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
