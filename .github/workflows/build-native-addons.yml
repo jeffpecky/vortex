@@ -92,16 +92,17 @@ jobs:
           sudo dpkg --add-architecture arm64
 
           # Configure apt for multiarch: amd64 from archive, arm64 from ports
-          sudo tee /etc/apt/sources.list > /dev/null <<'EOF'
-deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse
-deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
-deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
-deb [arch=amd64] http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
-EOF
+          # NOTE: cannot use heredoc here (breaks YAML indent), using printf instead
+          printf '%s\n' \
+            "deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" \
+            "deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse" \
+            "deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse" \
+            "deb [arch=amd64] http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse" \
+            "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse" \
+            "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse" \
+            "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse" \
+            "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse" \
+            | sudo tee /etc/apt/sources.list > /dev/null
 
           # Remove deb822 sources that may conflict
           sudo rm -f /etc/apt/sources.list.d/ubuntu.sources
