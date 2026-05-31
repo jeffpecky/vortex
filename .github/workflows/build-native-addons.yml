@@ -93,7 +93,13 @@ jobs:
         working-directory: src/vendor/@ant/computer-use-input
         run: |
           sudo dpkg --add-architecture arm64
-          sudo sed -i '/security.ubuntu.com/s/^deb/deb [arch=amd64]/' /etc/apt/sources.list 2>/dev/null || true
+          # security.ubuntu.com doesn't serve arm64 packages; restrict to amd64
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            if ! grep -q 'Architectures:' /etc/apt/sources.list.d/ubuntu.sources; then
+              sudo sed -i '/^URIs: .*security.ubuntu.com\/ubuntu/a\Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources
+            fi
+          fi
+          sudo find /etc/apt -name '*.list' -exec sed -i '/security.ubuntu.com/s/^deb/deb [arch=amd64]/' {} + 2>/dev/null || true
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libxdo-dev:arm64
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
