@@ -90,12 +90,22 @@ jobs:
         working-directory: src/vendor/@ant/computer-use-input
         run: |
           sudo dpkg --add-architecture arm64
-          # Restrict azure.archive.ubuntu.com to amd64 (already in sources.list with [arch=amd64])
-          sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' /etc/apt/sources.list
-          # Remove security.ubuntu.com from deb822 sources (no arm64 packages → 404)
-          sudo sed -i '/security.ubuntu.com/,/^$/d' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
-          # Apply [arch=amd64] to any remaining one-line-format .list files (skip lines with existing arch)
-          sudo find /etc/apt/sources.list.d -name '*.list' | xargs -I {} sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' {} 2>/dev/null || true
+
+          # Configure apt for multiarch: amd64 from archive, arm64 from ports
+          sudo tee /etc/apt/sources.list > /dev/null <<'EOF'
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
+deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
+deb [arch=amd64] http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-updates main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-backports main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
+EOF
+
+          # Remove deb822 sources that may conflict
+          sudo rm -f /etc/apt/sources.list.d/ubuntu.sources
+
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libxdo-dev:arm64
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
