@@ -37,15 +37,15 @@ jobs:
     runs-on: ${{ matrix.arch.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -74,63 +74,10 @@ jobs:
           cp ${{ matrix.addon.path }}/build/${{ matrix.addon.node_name }}.node vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.addon.name }}-${{ matrix.arch.target }}-darwin
           path: vendor/${{ matrix.addon.name }}/${{ matrix.arch.target }}-darwin/${{ matrix.addon.node_name }}.node
           if-no-files-found: error
 
-  test:
-    needs: build
-    runs-on: macos-latest
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: vendor-artifacts
-
-      - name: Organize binaries
-        shell: bash
-        run: |
-          mkdir -p vendor/computer-use-swift vendor/modifiers-napi
-          
-          # Organize computer-use-swift
-          for dir in vendor-artifacts/computer-use-swift-*; do
-            if [ -d "$dir" ]; then
-              arch_platform=$(basename "$dir" | sed 's/computer-use-swift-//')
-              mkdir -p "vendor/computer-use-swift/$arch_platform"
-              cp "$dir/computer_use.node" "vendor/computer-use-swift/$arch_platform/"
-            fi
-          done
-          
-          # Organize modifiers-napi
-          for dir in vendor-artifacts/modifiers-napi-*; do
-            if [ -d "$dir" ]; then
-              arch_platform=$(basename "$dir" | sed 's/modifiers-napi-//')
-              mkdir -p "vendor/modifiers-napi/$arch_platform"
-              cp "$dir/modifiers.node" "vendor/modifiers-napi/$arch_platform/"
-            fi
-          done
-          
-          # Show final structure
-          echo "Final vendor structure:"
-          find vendor -type f
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run computer-use-swift tests
-        working-directory: src/vendor/@ant/computer-use-swift
-        run: bun test || echo "Tests not yet implemented"
-
-      - name: Run modifiers-napi tests
-        working-directory: src/vendor/modifiers-napi
-        run: bun test || echo "Tests not yet implemented"

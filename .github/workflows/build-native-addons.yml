@@ -11,9 +11,6 @@ on:
       - 'src/vendor/@ant/computer-use-input/**'
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     strategy:
@@ -49,15 +46,15 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -67,13 +64,13 @@ jobs:
           targets: ${{ matrix.settings.target }}
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/registry/index
           key: ${{ matrix.settings.target }}-cargo-registry
 
       - name: Cache cargo build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: src/vendor/@ant/computer-use-input/target
           key: ${{ matrix.settings.target }}-cargo-build-${{ hashFiles('src/vendor/@ant/computer-use-input/Cargo.lock') }}
@@ -93,13 +90,15 @@ jobs:
         working-directory: src/vendor/@ant/computer-use-input
         run: |
           sudo dpkg --add-architecture arm64
-          # security.ubuntu.com doesn't serve arm64 packages; restrict to amd64
+          # Restrict all Ubuntu repos to amd64 to avoid 404s on security.ubuntu.com
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
           if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i 's/^Architectures:.*/Architectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
             if ! grep -q 'Architectures:' /etc/apt/sources.list.d/ubuntu.sources; then
-              sudo sed -i '/^URIs: .*security.ubuntu.com\/ubuntu/a\Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources
+              echo "Architectures: amd64" | sudo tee -a /etc/apt/sources.list.d/ubuntu.sources > /dev/null
             fi
           fi
-          sudo find /etc/apt -name '*.list' -exec sed -i '/security.ubuntu.com/s/^deb/deb [arch=amd64]/' {} + 2>/dev/null || true
+          sudo find /etc/apt/sources.list.d -name '*.sources' -o -name '*.list' | xargs -I {} sudo sed -i 's/^deb /deb [arch=amd64] /' {}
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libxdo-dev:arm64
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
@@ -127,7 +126,7 @@ jobs:
           cp "$BINARY" vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: computer-use-input-${{ matrix.settings.arch }}-${{ matrix.settings.platform }}
           path: vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
