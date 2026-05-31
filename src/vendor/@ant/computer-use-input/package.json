@@ -1,6 +1,7 @@
 {
   "name": "@ant/computer-use-input",
   "version": "1.0.0",
+  "main": "js/index.js",
   "napi": {
     "name": "computer-use-input",
     "package": {

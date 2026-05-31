@@ -16,8 +16,42 @@ if (process.platform !== "darwin") {
 // must pump `_drainMainRunLoop` via setInterval while those promises are
 // pending. Consumers under Electron don't need to (CFRunLoop drains
 // automatically).
-const native = require(
-  process.env.COMPUTER_USE_SWIFT_NODE_PATH ??
+
+// Try environment variable first (for bundled builds)
+if (process.env.COMPUTER_USE_SWIFT_NODE_PATH) {
+  try {
+    const native = require(process.env.COMPUTER_USE_SWIFT_NODE_PATH);
+    module.exports = native.computerUse;
+  } catch (err) {
+    // Fall through to architecture-specific loading
+  }
+}
+
+// Architecture-specific loading (following audio-capture pattern)
+if (!module.exports) {
+  const platformDir = `${process.arch}-${process.platform}`;
+  const fallbacks = [
+    `./vendor/computer-use-swift/${platformDir}/computer_use.node`,
+    `../prebuilds/computer_use.node`,
     path.resolve(__dirname, "../prebuilds/computer_use.node"),
-);
-module.exports = native.computerUse;
+  ];
+  
+  let loaded = false;
+  for (const p of fallbacks) {
+    try {
+      const native = require(p);
+      module.exports = native.computerUse;
+      loaded = true;
+      break;
+    } catch (err) {
+      // Try next fallback
+    }
+  }
+  
+  if (!loaded) {
+    throw new Error(
+      `Failed to load @ant/computer-use-swift native module. ` +
+      `Tried: ${fallbacks.join(", ")}`
+    );
+  }
+}

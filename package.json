@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build": "bun run build.ts",
+    "build:compile": "bun run build.ts -- --compile",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",

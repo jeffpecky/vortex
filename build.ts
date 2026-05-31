@@ -11,15 +11,25 @@
  * WARNING: Only enable flags marked SAFE. Others will crash at runtime
  * because source modules are missing or stubbed.
  *
+ * Usage:
+ *   bun run build              → dist/cli.js (JS bundle, dev/runtime)
+ *   bun run build -- --compile → dist/vortex (standalone binary, --compile
+ *     embeds native .node files as $bunfs assets)
+ *
  * Source structure:
  * - src/ - main source code
  * - src/vendor/ - vendor packages (@ant/, @anthropic-ai/, etc.)
  */
 
 import type { BunPlugin } from 'bun';
+import { existsSync } from 'fs';
+import path from 'path';
 
 const version = process.env.VERSION || '2.1.88';
 const buildTime = new Date().toISOString();
+
+// ── Compile mode ───────────────────────────────────────────────────────────
+const shouldCompile = process.argv.includes('--compile');
 
 // ── Feature Flags ─────────────────────────────────────────────────────────
 //
@@ -90,8 +100,57 @@ const bunBundlePlugin: BunPlugin = {
   },
 };
 
+// ── Native addon paths for --compile mode ─────────────────────────────────
+//
+// Bun's --compile embeds .node files reachable via static require() calls.
+// We use --define to replace process.env.*_NODE_PATH with a literal path
+// relative to the source file that does the require(). Bun traces the now-
+// static require(), resolves the .node on disk, and embeds it into $bunfs.
+
+const vendorAddons = [
+  {
+    envVar: 'AUDIO_CAPTURE_NODE_PATH',
+    sourceFile: 'src/vendor/audio-capture-src/index.ts',
+    vendorPath: `vendor/audio-capture/${process.arch}-${process.platform}/audio-capture.node`,
+  },
+  {
+    envVar: 'MODIFIERS_NODE_PATH',
+    sourceFile: 'src/vendor/modifiers-napi-src/index.ts',
+    vendorPath: `vendor/modifiers-napi/${process.arch}-${process.platform}/modifiers.node`,
+  },
+  {
+    envVar: 'COMPUTER_USE_SWIFT_NODE_PATH',
+    sourceFile: 'src/vendor/@ant/computer-use-swift/js/index.js',
+    vendorPath: `vendor/computer-use-swift/${process.arch}-${process.platform}/computer_use.node`,
+  },
+  {
+    envVar: 'COMPUTER_USE_INPUT_NODE_PATH',
+    sourceFile: 'src/vendor/@ant/computer-use-input/js/index.js',
+    vendorPath: `vendor/computer-use-input/${process.arch}-${process.platform}/computer-use-input.node`,
+  },
+];
+
+const nativeDefines: Record<string, string> = {};
+
+if (shouldCompile) {
+  console.log('\nNative addon paths (--compile mode):');
+  for (const addon of vendorAddons) {
+    if (existsSync(addon.vendorPath)) {
+      const relPath = path.relative(
+        path.dirname(path.resolve(addon.sourceFile)),
+        path.resolve(addon.vendorPath),
+      ).replace(/\\/g, '/');
+      const normalized = relPath.startsWith('.') ? relPath : './' + relPath;
+      nativeDefines[`process.env.${addon.envVar}`] = JSON.stringify(normalized);
+      console.log(`  ✓ ${addon.envVar} → ${normalized}`);
+    } else {
+      console.log(`  - ${addon.envVar} skipped (${addon.vendorPath} not found)`);
+    }
+  }
+}
+
 // ── Build ─────────────────────────────────────────────────────────────────
-console.log(`Building Vortex (Claude Code v${version})...`);
+console.log(`\nBuilding Vortex (Claude Code v${version})...`);
 
 const enabledFlags = Object.entries(FEATURE_FLAGS)
   .filter(([, v]) => v)
@@ -102,9 +161,13 @@ if (enabledFlags.length > 0) {
   console.log(`All feature flags disabled (external build)`);
 }
 
+const outfileName = shouldCompile
+  ? `dist/vortex${process.platform === 'win32' ? '.exe' : ''}`
+  : undefined;
+
 const result = await Bun.build({
   entrypoints: ['src/entrypoints/cli.tsx'],
-  outdir: 'dist',
+  outdir: shouldCompile ? undefined : 'dist',
   target: 'bun',
   sourcemap: 'linked',
   plugins: [bunBundlePlugin],
@@ -115,8 +178,10 @@ const result = await Bun.build({
     'MACRO.ISSUES_EXPLAINER': JSON.stringify(
       'report the issue at https://github.com/anthropics/claude-code/issues',
     ),
+    ...nativeDefines,
   },
   external: ['react-devtools-core', 'sharp'],
+  ...(shouldCompile ? { compile: { outfile: outfileName } } : {}),
 });
 
 if (!result.success) {
@@ -127,4 +192,8 @@ if (!result.success) {
   process.exit(1);
 }
 
-console.log(`Build succeeded: dist/cli.js (${(result.outputs[0]!.size / 1024 / 1024).toFixed(1)} MB)`);
+if (shouldCompile) {
+  console.log(`Build succeeded: ${outfileName}`);
+} else {
+  console.log(`Build succeeded: dist/cli.js (${(result.outputs[0]!.size / 1024 / 1024).toFixed(1)} MB)`);
+}
