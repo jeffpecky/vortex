@@ -91,14 +91,15 @@ jobs:
         run: |
           sudo dpkg --add-architecture arm64
           # Restrict all Ubuntu repos to amd64 to avoid 404s on security.ubuntu.com
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+          # Only add [arch=amd64] to lines without an existing arch specifier
+          sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' /etc/apt/sources.list
           if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
             sudo sed -i 's/^Architectures:.*/Architectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
             if ! grep -q 'Architectures:' /etc/apt/sources.list.d/ubuntu.sources; then
               echo "Architectures: amd64" | sudo tee -a /etc/apt/sources.list.d/ubuntu.sources > /dev/null
             fi
           fi
-          sudo find /etc/apt/sources.list.d -name '*.sources' -o -name '*.list' | xargs -I {} sudo sed -i 's/^deb /deb [arch=amd64] /' {}
+          sudo find /etc/apt/sources.list.d -name '*.sources' -o -name '*.list' | xargs -I {} sudo sed -i '/\[arch=/!s/^deb /deb [arch=amd64] /' {}
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libxdo-dev:arm64
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
