@@ -5,12 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run
 
 ```bash
-bun install          # NOT npm/yarn — this project uses Bun exclusively
-bun run build        # bundles to dist/cli.js (~23MB single file)
-bun dist/cli.js      # run the CLI
+bun install                # NOT npm/yarn — this project uses Bun exclusively
+bun run build              # bundles to dist/cli.js (~23MB JS bundle, dev/runtime)
+bun run build:compile      # → dist/vortex(.exe) standalone binary (embeds native .node files)
+bun run start              # run the CLI (bun dist/cli.js)
+bun run lint               # biome check src/
+bun run test               # bun test
+bun run typecheck          # tsc --noEmit
 ```
 
-There are no tests. There is no linter. The build script is `build.ts` (not a bundler config file).
+The build script is `build.ts`. Feature flags (`VOICE_MODE`, `COORDINATOR_MODE`, etc.) are resolved at compile time via a Bun plugin — see `FEATURE_FLAGS` in `build.ts`.
 
 ## What This Repo Is
 
@@ -18,7 +22,7 @@ Rebuilt Claude Code CLI from Anthropic's leaked source (1,929 files extracted fr
 
 ## Critical Gotchas
 
-- **Feature flags:** All `feature('FLAG_NAME')` calls return `false` via the shim at `shims/bun-bundle.ts`. This is intentional — it disables unreleased/internal features. Do not change this.
+- **Feature flags:** Many flags are now `true` via `FEATURE_FLAGS` in `build.ts`. The Bun plugin intercepts `import { feature } from 'bun:bundle'` and resolves them at compile time. Flags marked `INFRA` or `MISSING` will crash if enabled.
 - **MACRO.VERSION** is hardcoded to `2.1.88` in `build.ts`. Do not change this.
 - **Auto-updater is patched:** `src/utils/autoUpdater.ts` line 72 has an early return to disable remote version checks. Do not remove this.
 - **[STUB] files** contain minimal placeholder code. They exist because the source was missing (not in the leak), requires native binaries (Swift/Rust), or is Anthropic-internal (`USER_TYPE === 'ant'`). Do not try to "fix" or "complete" stubs unless explicitly asked.
@@ -53,7 +57,9 @@ SDK source is at `stubs/downloads/claude-agent-sdk/`.
 
 - **Computer Use** — logic extracted (`stubs/@ant/computer-use-mcp/src/toolCalls.ts`, 137KB) but needs native Swift/Rust binaries for screen capture/input.
 - **Auto-mode classifier prompts** — 3 `.txt` files were DCE'd by the TRANSCRIPT_CLASSIFIER flag.
-- **Feature-flagged features** (voice, coordinator, ultraplan, bridge) — disabled via shim, many need backend infra.
+- **Ultraplan** (`/ultraplan`) — spawns a remote CCR session on claude.ai. Needs Anthropic cloud infra and authenticated login.
+- **Bridge mode** — needs Anthropic's bridge server infrastructure.
+- **KAIROS / Assistant** — source files (`src/assistant/`, `src/proactive/`) not in leak.
 - **Ant-only tools** (Tungsten, REPL, SuggestBackgroundPR) — internal Anthropic tools, never available externally.
 
 ## All 27 Stub Files Created
@@ -92,7 +98,8 @@ Files we created (not from the original leak) to satisfy imports. Each contains 
 
 ## When Modifying This Repo
 
-- Always rebuild after source changes: `bun run build`
-- The build produces a single `dist/cli.js` file — there's no dev server or watch mode
+- Always rebuild after source changes: `bun run build` (JS) or `bun run build:compile` (standalone binary)
+- The build produces `dist/cli.js` (JS) or `dist/vortex(.exe)` (binary) — there's no dev server or watch mode
 - If adding new stubs, they go in `stubs/` and need corresponding shim entries if they're imported as packages
 - SDK types can be regenerated: `bun scripts/generate-sdk-types.ts`
+- Feature flags live in `FEATURE_FLAGS` at the top of `build.ts` — do not enable flags marked `INFRA` or `MISSING`

@@ -85,13 +85,15 @@ Created `build.ts` with:
 1. **Bun plugin for `bun:bundle`** -- intercepts `import { feature } from 'bun:bundle'` and replaces it with a runtime shim that resolves feature flags from a static map at compile time
 2. **`MACRO.*` constants** -- `MACRO.VERSION`, `MACRO.BUILD_TIME`, `MACRO.FEEDBACK_CHANNEL`, `MACRO.ISSUES_EXPLAINER` defined via Bun's `define` option, inlined at compile time
 3. **Single-file bundle** targeting Bun runtime, outputs to `dist/cli.js` (~23MB)
-4. **External modules** -- `react-devtools-core` and `sharp` marked as external (optional dependencies)
+4. **Standalone binary** (`--compile` mode) -- `bun run build:compile` produces `dist/vortex(.exe)` with embedded native `.node` addons via `$bunfs`
+5. **External modules** -- `react-devtools-core` and `sharp` marked as external (optional dependencies)
 
 ### Shims Created
 
-- `shims/bun-bundle.ts` -- runtime fallback for `feature()`, returns `false` for all flags
 - `shims/bun-bundle.d.ts` -- TypeScript declaration for the `bun:bundle` module
 - `shims/globals.d.ts` -- TypeScript declarations for `MACRO.*` compile-time constants
+
+The actual `feature()` implementation is now in `build.ts` as a Bun plugin (the `bunBundlePlugin`), which intercepts `bun:bundle` imports and resolves feature flags from the `FEATURE_FLAGS` static map at compile time.
 
 ### Real Packages Installed (Replacing Initial Stubs)
 
@@ -166,27 +168,11 @@ Every file we created from scratch (not from the leak) to satisfy import require
 | `src/commands.ts` | Hardcoded voice and ultraplan command requires, added ultraplan to COMMANDS array | Commands loaded via `feature()` ternary; ultraplan was in `INTERNAL_ONLY_COMMANDS` |
 | `src/commands/ultraplan.tsx` | Bypassed `isEnabled` ant-only gate | `isEnabled()` checked `USER_TYPE === 'ant'`, blocking external use |
 
-### Global Sed Replacements
+### Feature Flag Resolution via Bun Plugin
 
-Two rounds of global `sed` replacements across the source:
+The current approach uses a Bun plugin in `build.ts` (the `bunBundlePlugin`) that intercepts `import { feature } from 'bun:bundle'` at compile time and resolves flags from the `FEATURE_FLAGS` static map. This handles most `if (feature('X'))` conditionals.
 
-**Round 1 -- Voice Mode:**
-```bash
-# Replaced feature('VOICE_MODE') with true across 40+ files
-sed -i '' "s/feature('VOICE_MODE')/true/g" src/**/*.ts src/**/*.tsx
-```
-
-**Round 2 -- All Other Flags:**
-```bash
-# Replaced 11 additional feature flags with true
-for flag in COORDINATOR_MODE TOKEN_BUDGET TEAMMEM AGENT_TRIGGERS \
-  MESSAGE_ACTIONS HOOK_PROMPTS AWAY_SUMMARY BG_SESSIONS BUDDY \
-  DUMP_SYSTEM_PROMPT COWORKER_TYPE_TELEMETRY; do
-  sed -i '' "s/feature('${flag}')/true/g" src/**/*.ts src/**/*.tsx
-done
-```
-
-These sed replacements handle the cases where `feature()` is used in top-level expressions, ternaries, or dynamic `require()` calls that the Bun build plugin cannot resolve at compile time.
+Legacy `sed` replacements were previously used for ternary expressions and dynamic `require()` calls that the Bun plugin couldn't resolve. The current source still contains `feature('FLAG')` calls — they're resolved by the plugin at build time rather than being stripped from source.
 
 ---
 
@@ -229,8 +215,9 @@ All 27 known feature flags and their status in this build:
 ## What Works End-to-End
 
 ### Core Functionality
-- **Build** -- `bun run build` produces `dist/cli.js` (~23MB single file)
-- **CLI** -- `bun dist/cli.js` launches the interactive REPL
+- **Build (JS)** -- `bun run build` produces `dist/cli.js` (~23MB single file)
+- **Build (binary)** -- `bun run build:compile` produces `dist/vortex(.exe)` standalone binary with embedded native addons
+- **CLI** -- `bun run start` launches the interactive REPL
 - **`--version`** -- reports `2.1.88`
 - **`--help`** -- full help text with all flags
 - **`--dump-system-prompt`** -- outputs the complete system prompt
@@ -400,15 +387,14 @@ This is not a security vulnerability per se (the bucket appears intentionally pu
 5. **Update `MACRO.VERSION`** in `build.ts` to match the new version
 6. **Check for new feature flags** -- search for `feature('` in the new source
 7. **Check for new dependencies** -- diff `package.json` imports
-8. **Rebuild and test** -- `bun run build && bun dist/cli.js --version`
+8. **Rebuild and test** -- `bun run build && bun run start --version` (or `bun run build:compile` for standalone binary)
 
 ### Updating Feature Flags
 
 When a feature graduates from flag-gated to always-on in Anthropic's build:
 1. The `feature('FLAG')` calls will be removed from source
 2. The conditional imports will become unconditional
-3. Our `sed` replacements for that flag become no-ops (already resolved to `true`)
-4. Remove the flag from `build.ts` FEATURE_FLAGS
+3. Remove the flag from `FEATURE_FLAGS` in `build.ts`
 
 ### When Stubs Need Real Implementations
 
