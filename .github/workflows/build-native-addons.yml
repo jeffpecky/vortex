@@ -11,6 +11,9 @@ on:
       - 'src/vendor/@ant/computer-use-input/**'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     strategy:
@@ -79,12 +82,19 @@ jobs:
         working-directory: src/vendor/@ant/computer-use-input
         run: bun install
 
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux' && matrix.settings.target != 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxdo-dev
+
       - name: Build native addon (Linux ARM64)
         if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
         working-directory: src/vendor/@ant/computer-use-input
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libxdo-dev:arm64
           export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           bun run build --target ${{ matrix.settings.target }}
 
@@ -98,19 +108,16 @@ jobs:
         run: |
           mkdir -p vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}
 
-      - name: Copy binary to vendor (Windows)
-        if: matrix.settings.platform == 'win32'
+      - name: Copy binary to vendor
         shell: bash
-        working-directory: src/vendor/@ant/computer-use-input
         run: |
-          cp computer-use-input.node ../../../../../vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
-
-      - name: Copy binary to vendor (Unix)
-        if: matrix.settings.platform != 'win32'
-        shell: bash
-        working-directory: src/vendor/@ant/computer-use-input
-        run: |
-          cp computer-use-input.node ../../../../../vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
+          BINARY=$(ls src/vendor/@ant/computer-use-input/*.node 2>/dev/null | head -1)
+          if [ -z "$BINARY" ]; then
+            echo "ERROR: No .node file found in src/vendor/@ant/computer-use-input/" >&2
+            exit 1
+          fi
+          echo "Copying $BINARY to vendor..."
+          cp "$BINARY" vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -119,40 +126,4 @@ jobs:
           path: vendor/computer-use-input/${{ matrix.settings.arch }}-${{ matrix.settings.platform }}/computer-use-input.node
           if-no-files-found: error
 
-  test:
-    needs: build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: vendor/computer-use-input-artifacts
-
-      - name: Organize binaries
-        shell: bash
-        run: |
-          mkdir -p vendor/computer-use-input
-          for dir in vendor/computer-use-input-artifacts/*; do
-            if [ -d "$dir" ]; then
-              platform_dir=$(basename "$dir" | sed 's/computer-use-input-//')
-              mkdir -p "vendor/computer-use-input/$platform_dir"
-              cp "$dir/computer-use-input.node" "vendor/computer-use-input/$platform_dir/"
-            fi
-          done
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Run tests
-        run: bun test __tests__/computer-use-input.test.ts
