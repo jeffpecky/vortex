@@ -29,6 +29,7 @@ import {
   executeSessionEndHooks,
   getSessionEndHookTimeoutMs,
 } from '../../utils/hooks.js'
+import { clearThreadGoalHook } from '../../goals/goalState.js'
 import { logError } from '../../utils/log.js'
 import { clearAllPlanSlugs } from '../../utils/plans.js'
 import { setCwd } from '../../utils/Shell.js'
@@ -72,6 +73,12 @@ export async function clearConversation({
     signal: AbortSignal.timeout(sessionEndTimeoutMs),
     timeoutMs: sessionEndTimeoutMs,
   })
+
+  // Clear any active goal when the conversation is cleared (official spec)
+  clearThreadGoalHook(
+    { setAppState: setAppState ?? (() => {}) },
+    getSessionId(),
+  )
 
   // Signal to inference that this conversation's cache can be evicted.
   const lastRequestId = getLastMainRequestId()

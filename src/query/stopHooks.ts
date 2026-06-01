@@ -1,4 +1,5 @@
 import { feature } from 'bun:bundle'
+import { getSessionId, getTotalInputTokens, getTotalOutputTokens } from '../bootstrap/state.js'
 import { getShortcutDisplay } from '../keybindings/shortcutFormat.js'
 import { isExtractModeActive } from '../memdir/paths.js'
 import {
@@ -27,12 +28,21 @@ import {
   getStopHookMessage,
   getTaskCompletedHookMessage,
   getTeammateIdleHookMessage,
+  type HookResult,
 } from '../utils/hooks.js'
+import {
+  ensureThreadGoalHookFromTranscript,
+  isGoalPromptHookCommand,
+  updateGoalEvalResult,
+  getGoalStatusText,
+  getGoalReasonAsGuidance,
+} from '../goals/goalState.js'
 import {
   createStopHookSummaryMessage,
   createSystemMessage,
   createUserInterruptionMessage,
   createUserMessage,
+  createCommandInputMessage,
 } from '../utils/messages.js'
 import type { SystemPrompt } from '../utils/systemPromptType.js'
 import { getTaskListId, listTasks } from '../utils/tasks.js'
@@ -60,6 +70,15 @@ import {
 type StopHookResult = {
   blockingErrors: Message[]
   preventContinuation: boolean
+}
+
+export function shouldLetGoalPromptHookContinue(
+  result: Pick<HookResult, 'blockingError' | 'preventContinuation'>,
+): boolean {
+  return Boolean(
+    result.preventContinuation &&
+      isGoalPromptHookCommand(result.blockingError?.command),
+  )
 }
 
 export async function* handleStopHooks(
@@ -173,6 +192,15 @@ export async function* handleStopHooks(
   }
 
   try {
+    // Restore goal hook from transcript on session resume
+    if (!toolUseContext.agentId) {
+      ensureThreadGoalHookFromTranscript(
+        toolUseContext,
+        getSessionId(),
+        [...messagesForQuery, ...assistantMessages],
+      )
+    }
+
     const blockingErrors = []
     const appState = toolUseContext.getAppState()
     const permissionMode = appState.toolPermissionContext.mode
@@ -196,6 +224,8 @@ export async function* handleStopHooks(
     let hasOutput = false
     const hookErrors: string[] = []
     const hookInfos: StopHookInfo[] = []
+    let goalCompleted = false
+    let goalEvalReason: string | null = null
 
     for await (const result of generator) {
       if (result.message) {
@@ -238,6 +268,30 @@ export async function* handleStopHooks(
               ) {
                 hasOutput = true
               }
+              // Detect goal completion and capture evaluator reason
+              if (isGoalPromptHookCommand(attachment.command)) {
+                const stdout = attachment.stdout?.trim()
+                if (stdout) {
+                  try {
+                    const evalResult = JSON.parse(stdout)
+                    const ok = evalResult.ok === true
+                    const reason = evalResult.reason ?? null
+                    const { reason: evalReason, shouldContinue } = updateGoalEvalResult(getSessionId(), ok, reason)
+                    if (ok) {
+                      goalCompleted = true
+                    }
+                    // Store reason for injection as guidance on next turn
+                    if (!ok && evalReason) {
+                      goalEvalReason = evalReason
+                    }
+                  } catch {
+                    // If stdout isn't valid JSON, fall back to just detecting completion
+                    goalCompleted = true
+                  }
+                } else {
+                  goalCompleted = true
+                }
+              }
             }
             // Extract per-hook duration for timing visibility.
             // Hooks run in parallel; match by command + first unassigned entry.
@@ -267,16 +321,18 @@ export async function* handleStopHooks(
       }
       // Check if hook wants to prevent continuation
       if (result.preventContinuation) {
-        preventedContinuation = true
-        stopReason = result.stopReason || 'Stop hook prevented continuation'
-        // Create attachment to track the stopped continuation (for structured data)
-        yield createAttachmentMessage({
+        if (!shouldLetGoalPromptHookContinue(result)) {
+          preventedContinuation = true
+          stopReason = result.stopReason || 'Stop hook prevented continuation'
+          // Create attachment to track the stopped continuation (for structured data)
+          yield createAttachmentMessage({
           type: 'hook_stopped_continuation',
           message: stopReason,
           hookName: 'Stop',
           toolUseID: stopHookToolUseID,
           hookEvent: 'Stop',
-        })
+          })
+        }
       }
 
       // Check if we were aborted during hook execution
@@ -318,6 +374,24 @@ export async function* handleStopHooks(
           key: 'stop-hook-error',
           text: `Stop hook error occurred \u00b7 ${expandShortcut} to see`,
           priority: 'immediate',
+        })
+      }
+    }
+
+    // Emit goal completion or evaluator reason as guidance
+    const currentTokenSpend = getTotalInputTokens() + getTotalOutputTokens()
+    if (goalCompleted) {
+      const goalStatus = getGoalStatusText(getSessionId(), () => currentTokenSpend)
+      yield createCommandInputMessage(
+        `<local-command-stdout>${goalStatus}</local-command-stdout>`,
+      )
+    } else if (goalEvalReason) {
+      // Inject evaluator reason as guidance for the next turn
+      const guidance = getGoalReasonAsGuidance(getSessionId())
+      if (guidance) {
+        yield createUserMessage({
+          content: `<system-reminder>${guidance}</system-reminder>`,
+          isMeta: true,
         })
       }
     }
