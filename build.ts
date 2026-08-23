@@ -22,7 +22,7 @@
  */
 
 import type { BunPlugin } from 'bun';
-import { copyFileSync, existsSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, statSync } from 'fs';
 import path from 'path';
 
 const version = process.env.VERSION || '2.1.88';
@@ -30,6 +30,31 @@ const buildTime = new Date().toISOString();
 
 // ── Compile mode ───────────────────────────────────────────────────────────
 const shouldCompile = process.argv.includes('--compile');
+
+async function ensureSandboxRuntimeDist() {
+  const entrypoint = 'src/vendor/@anthropic-ai/sandbox-runtime/src/index.ts';
+  const outfile = 'src/vendor/@anthropic-ai/sandbox-runtime/dist/index.js';
+  const needsBuild =
+    !existsSync(outfile) || statSync(outfile).mtimeMs < statSync(entrypoint).mtimeMs;
+
+  if (!needsBuild) return;
+
+  console.log('Building @anthropic-ai/sandbox-runtime dist...');
+  mkdirSync(path.dirname(outfile), { recursive: true });
+
+  const result = await Bun.build({
+    entrypoints: [entrypoint],
+    outdir: path.dirname(outfile),
+    target: 'bun',
+    sourcemap: 'linked',
+  });
+
+  if (!result.success) {
+    console.error('Failed to build @anthropic-ai/sandbox-runtime:');
+    for (const log of result.logs) console.error(log);
+    process.exit(1);
+  }
+}
 
 function copyRipgrepSidecar() {
   if (!shouldCompile) return;
@@ -45,6 +70,7 @@ function copyRipgrepSidecar() {
     return;
   }
 
+  mkdirSync('dist', { recursive: true });
   const destination = path.join(
     'dist',
     process.platform === 'win32' ? 'rg.exe' : 'rg',
@@ -172,6 +198,8 @@ if (shouldCompile) {
 }
 
 // ── Build ─────────────────────────────────────────────────────────────────
+await ensureSandboxRuntimeDist();
+
 console.log(`\nBuilding Vortex (Claude Code v${version})...`);
 
 const enabledFlags = Object.entries(FEATURE_FLAGS)
