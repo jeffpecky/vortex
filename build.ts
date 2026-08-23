@@ -22,7 +22,7 @@
  */
 
 import type { BunPlugin } from 'bun';
-import { existsSync } from 'fs';
+import { copyFileSync, existsSync } from 'fs';
 import path from 'path';
 
 const version = process.env.VERSION || '2.1.88';
@@ -30,6 +30,28 @@ const buildTime = new Date().toISOString();
 
 // ── Compile mode ───────────────────────────────────────────────────────────
 const shouldCompile = process.argv.includes('--compile');
+
+function copyRipgrepSidecar() {
+  if (!shouldCompile) return;
+
+  const source = path.join(
+    'vendor',
+    'ripgrep',
+    `${process.arch}-${process.platform}`,
+    process.platform === 'win32' ? 'rg.exe' : 'rg',
+  );
+  if (!existsSync(source)) {
+    console.log(`  - ripgrep sidecar skipped (${source} not found)`);
+    return;
+  }
+
+  const destination = path.join(
+    'dist',
+    process.platform === 'win32' ? 'rg.exe' : 'rg',
+  );
+  copyFileSync(source, destination);
+  console.log(`  ✓ ripgrep sidecar → ${destination}`);
+}
 
 // ── Feature Flags ─────────────────────────────────────────────────────────
 //
@@ -194,6 +216,7 @@ if (!result.success) {
 
 if (shouldCompile) {
   console.log(`Build succeeded: ${outfileName}`);
+  copyRipgrepSidecar();
 } else {
   console.log(`Build succeeded: dist/cli.js (${(result.outputs[0]!.size / 1024 / 1024).toFixed(1)} MB)`);
 }

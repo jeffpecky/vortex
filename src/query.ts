@@ -1682,7 +1682,11 @@ async function* queryLoop(
     // long-running agent still refreshes what it's working on. Gated
     // only on !agentId so every top-level conversation (REPL, SDK, HFI,
     // remote) generates summaries; subagents/forks don't.
-    if (true) {
+    if (
+      feature('BG_SESSIONS') &&
+      typeof taskSummaryModule?.shouldGenerateTaskSummary === 'function' &&
+      typeof taskSummaryModule.maybeGenerateTaskSummary === 'function'
+    ) {
       if (
         !toolUseContext.agentId &&
         taskSummaryModule!.shouldGenerateTaskSummary()

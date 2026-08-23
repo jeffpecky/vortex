@@ -43,9 +43,19 @@ describe('build configuration', () => {
     const buildContent = readFileSync(buildPath, 'utf8')
     
     expect(buildContent).toContain("entrypoints: ['src/entrypoints/cli.tsx']")
-    expect(buildContent).toContain("outdir: 'dist'")
+    expect(buildContent).toContain("outdir: shouldCompile ? undefined : 'dist'")
     expect(buildContent).toContain("target: 'bun'")
     expect(buildContent).toContain("sourcemap: 'linked'")
+  })
+
+  it('should copy ripgrep beside the compiled executable', () => {
+    const buildPath = resolve(process.cwd(), 'build.ts')
+    const buildContent = readFileSync(buildPath, 'utf8')
+
+    expect(buildContent).toContain('copyRipgrepSidecar')
+    expect(buildContent).toContain("'vendor'")
+    expect(buildContent).toContain("'ripgrep'")
+    expect(buildContent).toContain("'rg.exe'")
   })
 
   it('should externalize specific dependencies', () => {

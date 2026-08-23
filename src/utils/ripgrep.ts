@@ -1,5 +1,6 @@
 import type { ChildProcess, ExecFileException } from 'child_process'
 import { execFile, spawn } from 'child_process'
+import { existsSync } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import { homedir } from 'os'
 import * as path from 'path'
@@ -22,10 +23,88 @@ const __dirname = path.join(
 )
 
 type RipgrepConfig = {
-  mode: 'system' | 'builtin' | 'embedded'
+  mode: 'system' | 'builtin' | 'embedded' | 'unavailable'
   command: string
   args: string[]
   argv0?: string
+}
+
+export const VORTEX_RIPGREP_PATH_ENV = 'VORTEX_RIPGREP_PATH'
+
+function systemRipgrepConfig(): RipgrepConfig | null {
+  const { cmd: systemPath } = findExecutable('rg', [])
+  if (systemPath === 'rg' || !existsSync(systemPath)) return null
+
+  // SECURITY: Use command name 'rg' instead of systemPath to prevent PATH hijacking.
+  // If we used systemPath, a malicious ./rg.exe in current directory could be executed.
+  // Using just 'rg' lets the OS resolve it safely with NoDefaultCurrentDirectoryInExePath protection.
+  return { mode: 'system', command: 'rg', args: [] }
+}
+
+export function getBundledRipgrepPath({
+  platform = process.platform,
+  execPath = process.execPath,
+}: {
+  platform?: NodeJS.Platform
+  arch?: NodeJS.Architecture
+  execPath?: string
+} = {}): string | null {
+  const pathApi = platform === 'win32' ? path.win32 : path.posix
+  return pathApi.join(
+    pathApi.dirname(execPath),
+    platform === 'win32' ? 'rg.exe' : 'rg',
+  )
+}
+
+export function getVendoredRipgrepPath({
+  platform = process.platform,
+  arch = process.arch,
+  packageRoot,
+}: {
+  platform?: NodeJS.Platform
+  arch?: NodeJS.Architecture
+  packageRoot: string
+}): string {
+  const pathApi = platform === 'win32' ? path.win32 : path.posix
+  return pathApi.join(
+    packageRoot,
+    'vendor',
+    'ripgrep',
+    `${arch}-${platform}`,
+    platform === 'win32' ? 'rg.exe' : 'rg',
+  )
+}
+
+function packagedRipgrepConfig(): RipgrepConfig | null {
+  const explicitPath = process.env[VORTEX_RIPGREP_PATH_ENV]?.trim()
+  if (explicitPath && existsSync(explicitPath)) {
+    return { mode: 'builtin', command: explicitPath, args: ['--no-config'] }
+  }
+
+  const siblingPath = getBundledRipgrepPath()
+  if (siblingPath && existsSync(siblingPath)) {
+    return { mode: 'builtin', command: siblingPath, args: ['--no-config'] }
+  }
+
+  return null
+}
+
+function vendoredRipgrepConfig(): RipgrepConfig | null {
+  const packageRoots = [
+    process.cwd(),
+    __dirname,
+    path.resolve(__dirname, '..'),
+    path.resolve(__dirname, '..', '..'),
+  ]
+
+  for (const packageRoot of packageRoots) {
+    const command = getVendoredRipgrepPath({ packageRoot })
+    if (existsSync(command)) {
+      return { mode: 'builtin', command, args: ['--no-config'] }
+    }
+  }
+
+  return null
 }
 
 const getRipgrepConfig = memoize((): RipgrepConfig => {
@@ -35,13 +114,14 @@ const getRipgrepConfig = memoize((): RipgrepConfig => {
 
   // Try system ripgrep if user wants it
   if (userWantsSystemRipgrep) {
-    const { cmd: systemPath } = findExecutable('rg', [])
-    if (systemPath !== 'rg') {
-      // SECURITY: Use command name 'rg' instead of systemPath to prevent PATH hijacking
-      // If we used systemPath, a malicious ./rg.exe in current directory could be executed
-      // Using just 'rg' lets the OS resolve it safely with NoDefaultCurrentDirectoryInExePath protection
-      return { mode: 'system', command: 'rg', args: [] }
-    }
+    return (
+      systemRipgrepConfig() ?? { mode: 'unavailable', command: '', args: [] }
+    )
+  }
+
+  const packagedConfig = packagedRipgrepConfig()
+  if (packagedConfig) {
+    return packagedConfig
   }
 
   // In bundled (native) mode, ripgrep is statically compiled into bun-internal
@@ -55,13 +135,12 @@ const getRipgrepConfig = memoize((): RipgrepConfig => {
     }
   }
 
-  const rgRoot = path.resolve(__dirname, 'vendor', 'ripgrep')
-  const command =
-    process.platform === 'win32'
-      ? path.resolve(rgRoot, `${process.arch}-win32`, 'rg.exe')
-      : path.resolve(rgRoot, `${process.arch}-${process.platform}`, 'rg')
+  const vendoredConfig = vendoredRipgrepConfig()
+  if (vendoredConfig) {
+    return vendoredConfig
+  }
 
-  return { mode: 'builtin', command, args: [] }
+  return systemRipgrepConfig() ?? { mode: 'unavailable', command: '', args: [] }
 })
 
 export function ripgrepCommand(): {
@@ -533,7 +612,7 @@ let ripgrepStatus: {
  * Returns current configuration immediately, with working status if available
  */
 export function getRipgrepStatus(): {
-  mode: 'system' | 'builtin' | 'embedded'
+  mode: 'system' | 'builtin' | 'embedded' | 'unavailable'
   path: string
   working: boolean | null // null if not yet tested
 } {

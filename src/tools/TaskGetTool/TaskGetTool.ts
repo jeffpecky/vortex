@@ -54,7 +54,7 @@ export const TaskGetTool = buildTool({
   userFacingName() {
     return 'TaskGet'
   },
-  shouldDefer: true,
+  alwaysLoad: true,
   isEnabled() {
     return isTodoV2Enabled()
   },

@@ -2915,6 +2915,13 @@ export function REPL({
         }
       }
       await onQueryImpl(latestMessages, newMessages, abortController, shouldQuery, additionalAllowedTools, mainLoopModelParam, effort);
+    } catch (error) {
+      logError(error)
+      logForDebugging(
+        `[query:repl] onQueryImpl failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`,
+        { level: 'error' },
+      )
+      throw error
     } finally {
       // queryGuard.end() atomically checks generation and transitions
       // running→idle. Returns false if a newer query owns the guard
