@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 
 const TARGETS = [
@@ -29,6 +29,14 @@ describe('native packages', () => {
   })
 
   it('should have exactly six manifests with unique names', () => {
+    const nativeDir = resolve(process.cwd(), 'npm', 'native')
+    const actualDirs = readdirSync(nativeDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name !== 'node_modules')
+      .map((entry) => entry.name)
+      .sort()
+    const expectedDirs = TARGETS.map((t) => `${t.platform}-${t.arch}`).sort()
+    expect(actualDirs).toEqual(expectedDirs)
+
     const names = new Set<string>()
     for (const target of TARGETS) {
       const pkg = loadManifest(target)

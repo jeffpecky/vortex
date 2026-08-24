@@ -18,6 +18,10 @@ describe('package.json configuration', () => {
 
     expect(pkg.author).toBe('sleepyhallow')
     expect(pkg.homepage).toBe('https://github.com/jeffpecky/vortex')
+    expect(pkg.repository).toEqual({
+      type: 'git',
+      url: 'git+https://github.com/jeffpecky/vortex.git',
+    })
     expect(pkg.bugs).toEqual({ url: 'https://github.com/jeffpecky/vortex/issues' })
     expect(pkg.license).toBe('SEE LICENSE IN LICENSE.md')
     expect(pkg.publishConfig).toEqual({ access: 'public', provenance: true })
