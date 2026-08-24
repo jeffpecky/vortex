@@ -39,13 +39,14 @@ jobs:
             platform: linux
             arch: arm64
             suffix: ''
-          - os: macos-14
-            platform: darwin
-            arch: arm64
-            suffix: ''
-          - os: macos-13
+          # macos-13 is retired; macos-15-intel provides x64 macOS
+          - os: macos-15-intel
             platform: darwin
             arch: x64
+            suffix: ''
+          - os: macos-15
+            platform: darwin
+            arch: arm64
             suffix: ''
     env:
       TARGET: ${{ matrix.platform }}-${{ matrix.arch }}
@@ -149,7 +150,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Reject already published versions
+      - name: Check package versions against tag
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -157,11 +158,19 @@ jobs:
             echo "::error::release must run from a v<semver> tag (got $GITHUB_REF_NAME)"
             exit 1
           fi
+          PKG_VERSION="$(bun -p "require('./package.json').version")"
+          if [[ "$VERSION" != "$PKG_VERSION" ]]; then
+            echo "::error::tag v$VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: List already published packages
+        shell: bash
+        run: |
           for name in @sleepyhallow/vortex @sleepyhallow/vortex-win32-x64 @sleepyhallow/vortex-win32-arm64 @sleepyhallow/vortex-linux-x64 @sleepyhallow/vortex-linux-arm64 @sleepyhallow/vortex-darwin-x64 @sleepyhallow/vortex-darwin-arm64; do
             if npm view "$name@$VERSION" version >/dev/null 2>&1; then
-              echo "::error::$name@$VERSION already published"
-              exit 1
+              echo "::warning::$name@$VERSION already published; publish steps will skip it"
             fi
           done
 
@@ -171,6 +180,11 @@ jobs:
           for target in $TARGETS; do
             tarball=".npm-staged/$target/sleepyhallow-vortex-$target-$VERSION.tgz"
             test -f "$tarball"
+            name="@sleepyhallow/vortex-$target"
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "::warning::$name@$VERSION already published; skipping"
+              continue
+            fi
             npm publish "$tarball" --access public --provenance
           done
 
@@ -184,7 +198,12 @@ jobs:
 
       - name: Publish launcher package
         shell: bash
-        run: npm publish "./sleepyhallow-vortex-$VERSION.tgz" --access public --provenance
+        run: |
+          if npm view "@sleepyhallow/vortex@$VERSION" version >/dev/null 2>&1; then
+            echo "::warning::@sleepyhallow/vortex@$VERSION already published; skipping"
+          else
+            npm publish "./sleepyhallow-vortex-$VERSION.tgz" --access public --provenance
+          fi
 
       - name: Merge checksums
         shell: bash

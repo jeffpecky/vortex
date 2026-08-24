@@ -9,8 +9,8 @@ const TARGET_RUNNERS = [
   { runner: 'windows-11-arm', platform: 'win32', arch: 'arm64', suffix: '.exe' },
   { runner: 'ubuntu-latest', platform: 'linux', arch: 'x64', suffix: "''" },
   { runner: 'ubuntu-24.04-arm', platform: 'linux', arch: 'arm64', suffix: "''" },
-  { runner: 'macos-14', platform: 'darwin', arch: 'arm64', suffix: "''" },
-  { runner: 'macos-13', platform: 'darwin', arch: 'x64', suffix: "''" },
+  { runner: 'macos-15-intel', platform: 'darwin', arch: 'x64', suffix: "''" },
+  { runner: 'macos-15', platform: 'darwin', arch: 'arm64', suffix: "''" },
 ] as const
 
 const NATIVE_TARGETS = TARGET_RUNNERS.map((t) => `${t.platform}-${t.arch}`)
@@ -27,6 +27,18 @@ function childBlock(text: string, header: string): string[] {
     body.push(line)
   }
   return body.join('\n').split('\n')
+}
+
+function stepBlock(yamlText: string, stepName: string): string {
+  const lines = yamlText.split('\n')
+  const start = lines.findIndex((line) => line.trim() === `- name: ${stepName}`)
+  if (start === -1) return ''
+  const out: string[] = []
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\s{6}- name:/.test(lines[i]!)) break
+    out.push(lines[i]!)
+  }
+  return out.join('\n')
 }
 
 const yaml = existsSync(WORKFLOW_PATH) ? readFileSync(WORKFLOW_PATH, 'utf8') : ''
@@ -72,8 +84,8 @@ describe('release-npm workflow structure', () => {
       'win32-arm64',
       'linux-x64',
       'linux-arm64',
-      'darwin-arm64',
       'darwin-x64',
+      'darwin-arm64',
     ])
     expect(yaml).toContain('runs-on: ${{ matrix.os }}')
   })
@@ -154,16 +166,34 @@ describe('release-npm publish job', () => {
     expect(perms).toContain('contents: write')
   })
 
-  it('derives the version from the tag', () => {
-    expect(publishJob).toContain('GITHUB_REF_NAME#v')
+  it('derives the version from the tag and matches package.json', () => {
+    const versionStep = stepBlock(yaml, 'Check package versions against tag')
+    expect(versionStep).toContain('GITHUB_REF_NAME#v')
+    expect(versionStep).toContain("require('./package.json').version")
+    expect(versionStep).toContain('::error::')
   })
 
-  it('rejects versions that are already published', () => {
-    expect(publishJob).toContain('npm view')
-    expect(publishJob).toContain('already published')
-    for (const target of NATIVE_TARGETS) {
-      expect(publishJob).toContain(`@sleepyhallow/vortex-${target}`)
-    }
+  it('warns non-fatally about already published packages', () => {
+    const listStep = stepBlock(yaml, 'List already published packages')
+    expect(listStep).toContain('npm view')
+    expect(listStep).toContain('::warning::')
+    expect(listStep).not.toMatch(/exit 1/)
+  })
+
+  it('skips already published natives per package', () => {
+    const publishStep = stepBlock(yaml, 'Publish native packages')
+    expect(publishStep).toContain('npm view')
+    expect(publishStep).toContain('already published; skipping')
+    expect(publishStep).toContain('continue')
+    expect(publishStep).toContain('--access public --provenance')
+  })
+
+  it('skips already published launcher', () => {
+    const publishStep = stepBlock(yaml, 'Publish launcher package')
+    expect(publishStep).toContain('npm view')
+    expect(publishStep).toContain('already published; skipping')
+    expect(publishStep).toContain('else')
+    expect(publishStep).toContain('--access public --provenance')
   })
 
   it('downloads all staged artifacts', () => {
@@ -172,13 +202,16 @@ describe('release-npm publish job', () => {
   })
 
   it('publishes six natives first, verifies root-only, then launcher last', () => {
+    const versionGuard = yaml.indexOf('Check package versions against tag')
     const nativePublish = yaml.indexOf('for target in $TARGETS')
     const rootOnlyVerify = yaml.indexOf('--root-only')
     const rootPack = yaml.indexOf('npm pack --json --ignore-scripts --offline > pack.json', rootOnlyVerify)
     const rootPublish = yaml.indexOf(
       'npm publish "./sleepyhallow-vortex-$VERSION.tgz"',
     )
+    expect(versionGuard).toBeGreaterThanOrEqual(0)
     expect(nativePublish).toBeGreaterThanOrEqual(0)
+    expect(versionGuard).toBeLessThan(nativePublish)
     expect(rootOnlyVerify).toBeGreaterThan(nativePublish)
     expect(rootPack).toBeGreaterThan(rootOnlyVerify)
     expect(rootPublish).toBeGreaterThan(rootPack)
