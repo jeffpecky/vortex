@@ -69,6 +69,29 @@ describe('package.json configuration', () => {
     expect(pkg.engines.node).toBeDefined()
   })
 
+  it('should depend on native packages for every supported platform', () => {
+    const pkgPath = resolve(process.cwd(), 'package.json')
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+
+    const targets = [
+      ['win32', 'x64'],
+      ['win32', 'arm64'],
+      ['linux', 'x64'],
+      ['linux', 'arm64'],
+      ['darwin', 'x64'],
+      ['darwin', 'arm64'],
+    ] as const
+    const expected = targets.map(
+      ([platform, arch]) => [`@sleepyhallow/vortex-${platform}-${arch}`, pkg.version] as const,
+    )
+    const native = Object.fromEntries(
+      Object.entries(pkg.optionalDependencies ?? {}).filter(([name]) =>
+        name.startsWith('@sleepyhallow/vortex-'),
+      ),
+    )
+    expect(native).toEqual(Object.fromEntries(expected))
+  })
+
   it('should document public installation and source development', () => {
     const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8')
 
