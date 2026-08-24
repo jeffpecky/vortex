@@ -39,27 +39,16 @@ bun run build
 bun run start
 ```
 
-## Rebuilding from source
+## Source layout
 
-Rebuilding from the extracted source is **not feasible** because:
-
-- The code uses `import { feature } from 'bun:bundle'` (Bun bundler compile-time API)
-- The original `package.json` with ~hundreds of build/dev dependencies is not published
-- Build configuration (tsconfig, bundler config) is not included in the source map
-- 2,850 bundled `node_modules` dependencies are only present as source map entries
-
-The extracted `source/` tree (1,906 files, 35 MB) is useful for **reading and studying** the internals, not for rebuilding.
-
-## Directory layout
+Vortex reconstructs build configuration and missing integration pieces around the extracted upstream source. The current repository builds with Bun; it is not the original published Anthropic package layout.
 
 ```
-cli.js           # 13 MB self-contained Node.js bundle (the actual executable)
-cli.js.map       # 57 MB source map (contains all original sources)
-source/          # extracted source tree:
-  src/           #   1,902 TypeScript/TSX application files
-  vendor/        #   4 native module source stubs
-package.json     # published package manifest (no build deps)
-README.md        # this file
+src/             # reconstructed TypeScript/TSX application source
+stubs/           # placeholders and extracted reference implementations
+build.ts         # Bun build configuration
+package.json     # Vortex package and development metadata
+README.md        # project, attribution, and usage guidance
 ```
 
 ---
@@ -88,7 +77,7 @@ npm install -g @sleepyhallow/vortex
 
 ## Reporting Bugs
 
-We welcome your feedback. Use the `/bug` command to report issues directly within Claude Code, or file a [GitHub issue](https://github.com/anthropics/claude-code/issues).
+For Vortex support and bug reports, file a [GitHub issue](https://github.com/jeffpecky/vortex/issues). Upstream Claude Code issues remain separate from this reconstruction.
 
 ## Connect on Discord
 
