@@ -1,0 +1,15 @@
+{
+  "name": "@sleepyhallow/vortex-darwin-arm64",
+  "version": "0.1.0",
+  "description": "Native binaries for @sleepyhallow/vortex on darwin-arm64.",
+  "type": "module",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["bin/", "README.md", "LICENSE.md"],
+  "repository": "https://github.com/jeffpecky/vortex",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
