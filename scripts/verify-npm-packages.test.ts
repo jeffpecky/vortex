@@ -156,7 +156,6 @@ function fakePack(fixture: Fixture) {
         "LICENSE.md",
         "bin/vortex.js",
         "bin/platform-package.js",
-        "dist/cli.js",
       ],
     ],
   ]);
@@ -281,6 +280,7 @@ describe("verify-npm-packages", () => {
         const parsed = JSON.parse(baseFake(dir)) as { files: { path: string }[] }[];
         if (dir === fixture.repo) {
           parsed[0]!.files.push(
+            { path: "dist/cli.js" },
             { path: "dist/cli.js.map" },
             { path: "native/win32-x64/package.json" },
           );
@@ -289,7 +289,19 @@ describe("verify-npm-packages", () => {
       },
     });
     expect(failures.filter((f) => f.startsWith("[root]")).length).toBeGreaterThanOrEqual(1);
+    expect(failures.some((f) => f.includes("dist/cli.js") && !f.includes(".map"))).toBe(true);
+    expect(failures.some((f) => f.includes("dist/cli.js.map"))).toBe(true);
     expect(failures.some((f) => f.includes("native/win32-x64/package.json"))).toBe(true);
+  });
+
+  test("rootOnly scope skips native packages entirely", () => {
+    const fixture = makeRepo({ natives: { "linux-x64": { withExe: false, withRg: false } } });
+    const failures = verifyNpmPackages({
+      repoRoot: fixture.repo,
+      rootOnly: true,
+      pack: fakePack(fixture),
+    });
+    expect(failures).toEqual([]);
   });
 
   test("fails when root optionalDependencies are missing or versions drift", () => {

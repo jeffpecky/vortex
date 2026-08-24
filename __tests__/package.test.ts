@@ -25,7 +25,7 @@ describe('package.json configuration', () => {
     expect(pkg.bugs).toEqual({ url: 'https://github.com/jeffpecky/vortex/issues' })
     expect(pkg.license).toBe('SEE LICENSE IN LICENSE.md')
     expect(pkg.publishConfig).toEqual({ access: 'public', provenance: true })
-    expect(pkg.files).toEqual(['bin/', 'dist/', 'native/'])
+    expect(pkg.files).toEqual(['bin/', 'README.md', 'LICENSE.md'])
     expect(pkg.scripts.prepublishOnly).toBeUndefined()
   })
 

@@ -6,8 +6,8 @@
   },
   "files": [
     "bin/",
-    "dist/",
-    "native/"
+    "README.md",
+    "LICENSE.md"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -35,7 +35,7 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "verify:npm-packages": "bun scripts/verify-npm-packages.ts",
-    "prepack": "bun run verify:npm-packages",
+    "prepack": "bun scripts/verify-npm-packages.ts --root-only",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",

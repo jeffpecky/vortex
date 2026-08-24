@@ -21,7 +21,6 @@ const ROOT_ALLOWLIST = [
   "LICENSE.md",
   "bin/vortex.js",
   "bin/platform-package.js",
-  "dist/cli.js",
 ];
 const SEMVER = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 
@@ -45,6 +44,7 @@ export type VerifyOptions = {
   repoRoot?: string;
   staged?: readonly string[];
   pack?: (dir: string) => string;
+  rootOnly?: boolean;
 };
 
 function readJsonManifest(filePath: string): unknown {
@@ -252,6 +252,7 @@ export function verifyNpmPackages(options: VerifyOptions = {}): string[] {
   try {
     const rootPkg = readJsonManifest(path.join(repoRoot, "package.json")) as RootManifest;
     const rootVersion = typeof rootPkg.version === "string" ? rootPkg.version : "";
+    if (options.rootOnly) return failures;
     for (const dir of scanNativeDirs(repoRoot)) {
       failures = failures.concat(verifyNativePackage(dir, path.basename(dir), rootVersion, pack));
     }
@@ -266,15 +267,25 @@ export function verifyNpmPackages(options: VerifyOptions = {}): string[] {
 }
 
 const USAGE =
-  "usage: bun scripts/verify-npm-packages.ts [--staged <dir>]... (--staged repeatable for CI staging outputs)";
+  "usage: bun scripts/verify-npm-packages.ts [--root-only] [--staged <dir>]...\n" +
+  "\n" +
+  "Default verifies the root launcher plus every package under npm/native/*.\n" +
+  "--root-only checks the root launcher alone (used by the prepack hook so local\n" +
+  "packing works before native packages are staged).\n" +
+  "--staged <dir> (repeatable) additionally verifies CI staging outputs.";
 
-function parseArgs(argv: readonly string[]): { staged: string[] } {
+function parseArgs(argv: readonly string[]): { staged: string[]; rootOnly: boolean } {
   const staged: string[] = [];
+  let rootOnly = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg === "-h" || arg === "--help") {
       console.log(USAGE);
       process.exit(0);
+    }
+    if (arg === "--root-only") {
+      rootOnly = true;
+      continue;
     }
     if (arg !== "--staged") {
       console.error(`error: unknown argument "${arg}"\n${USAGE}`);
@@ -287,12 +298,12 @@ function parseArgs(argv: readonly string[]): { staged: string[] } {
     }
     staged.push(value);
   }
-  return { staged };
+  return { staged, rootOnly };
 }
 
 if (import.meta.main) {
-  const { staged } = parseArgs(process.argv.slice(2));
-  const failures = verifyNpmPackages({ staged });
+  const { staged, rootOnly } = parseArgs(process.argv.slice(2));
+  const failures = verifyNpmPackages({ staged, rootOnly });
   for (const failure of failures) {
     console.error(`error: ${failure}`);
   }
