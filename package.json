@@ -1,19 +1,28 @@
 {
-  "name": "@anthropic-ai/claude-code",
-  "version": "2.1.88",
+  "name": "@sleepyhallow/vortex",
+  "version": "0.1.0",
   "bin": {
-    "claude": "cli.js"
+    "vortex": "bin/vortex.js"
   },
+  "files": [
+    "bin/",
+    "dist/",
+    "native/"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
   "type": "module",
-  "author": "Anthropic <support@anthropic.com>",
+  "author": "sleepyhallow",
   "license": "SEE LICENSE IN README.md",
   "description": "Use Claude, Anthropic's AI assistant, right from your terminal. Claude can understand your codebase, edit files, run terminal commands, and handle entire workflows for you.",
-  "homepage": "https://github.com/anthropics/claude-code",
+  "homepage": "https://github.com/jeffpecky/vortex",
   "bugs": {
-    "url": "https://github.com/anthropics/claude-code/issues"
+    "url": "https://github.com/jeffpecky/vortex/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "bun run build.ts",
@@ -24,8 +33,7 @@
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
     "check": "tsc --noEmit && biome check src/",
-    "start": "bun dist/cli.js",
-    "prepublishOnly": "node -e \"if (!process.env.AUTHORIZED) { console.error('ERROR: Direct publishing is not allowed.\\nPlease see the release workflow documentation to publish this package.'); process.exit(1); }\""
+    "start": "bun dist/cli.js"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",

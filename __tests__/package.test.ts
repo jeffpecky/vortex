@@ -7,9 +7,21 @@ describe('package.json configuration', () => {
     const pkgPath = resolve(process.cwd(), 'package.json')
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
     
-    expect(pkg.name).toBeDefined()
-    expect(pkg.version).toBeDefined()
+    expect(pkg.name).toBe('@sleepyhallow/vortex')
+    expect(pkg.version).toBe('0.1.0')
     expect(pkg.type).toBe('module')
+  })
+
+  it('should have public release metadata', () => {
+    const pkgPath = resolve(process.cwd(), 'package.json')
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+
+    expect(pkg.author).toBe('sleepyhallow')
+    expect(pkg.homepage).toBe('https://github.com/jeffpecky/vortex')
+    expect(pkg.bugs).toEqual({ url: 'https://github.com/jeffpecky/vortex/issues' })
+    expect(pkg.publishConfig).toEqual({ access: 'public', provenance: true })
+    expect(pkg.files).toEqual(['bin/', 'dist/', 'native/'])
+    expect(pkg.scripts.prepublishOnly).toBeUndefined()
   })
 
   it('should have build script', () => {
@@ -25,7 +37,7 @@ describe('package.json configuration', () => {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
     
     expect(pkg.bin).toBeDefined()
-    expect(pkg.bin.claude).toBe('cli.js')
+    expect(pkg.bin).toEqual({ vortex: 'bin/vortex.js' })
   })
 
   it('should have required dependencies', () => {
@@ -50,5 +62,14 @@ describe('package.json configuration', () => {
     
     expect(pkg.engines).toBeDefined()
     expect(pkg.engines.node).toBeDefined()
+  })
+
+  it('should document public installation and source development', () => {
+    const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8')
+
+    expect(readme).toContain('npm install -g @sleepyhallow/vortex')
+    expect(readme).toContain('run `vortex`')
+    expect(readme).toContain('bun install')
+    expect(readme).toContain('reconstruction')
   })
 })

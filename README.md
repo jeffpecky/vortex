@@ -20,23 +20,23 @@ for (let i = 0; i < map.sources.length; i++) {
 }'
 ```
 
-## Usage
+## Install Vortex
 
-The bundled `cli.js` is self-contained and runs directly with Node.js >= 18:
+Install the public package and run `vortex`:
 
 ```sh
-node cli.js --version          # 2.1.88 (Claude Code)
-node cli.js --help             # show all options
-node cli.js -p "hello world"   # non-interactive one-shot
-node cli.js                    # interactive REPL
+npm install -g @sleepyhallow/vortex
+vortex --help
 ```
 
-Or install globally / symlink:
+## Source development
+
+This reconstruction uses Bun for local development:
 
 ```sh
-npm install -g @anthropic-ai/claude-code@2.1.88
-# or
-ln -s "$(pwd)/cli.js" /usr/local/bin/claude
+bun install
+bun run build
+bun run start
 ```
 
 ## Rebuilding from source
@@ -78,13 +78,13 @@ Claude Code is an agentic coding tool that lives in your terminal, understands y
 
 ## Get started
 
-1. Install Claude Code:
+1. Install Vortex:
 
 ```sh
-npm install -g @anthropic-ai/claude-code
+npm install -g @sleepyhallow/vortex
 ```
 
-2. Navigate to your project directory and run `claude`.
+2. Navigate to your project directory and run `vortex`.
 
 ## Reporting Bugs
 

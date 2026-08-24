@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@anthropic-ai/claude-code",
+      "name": "@sleepyhallow/vortex",
       "dependencies": {
         "@alcalzone/ansi-tokenize": "^0.1.0",
         "@anthropic-ai/bedrock-sdk": "file:./src/vendor/@anthropic-ai/bedrock-sdk",
