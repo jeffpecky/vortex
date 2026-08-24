@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
+  copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -164,11 +166,9 @@ test("fails when output already exists non-empty", () => {
   ).toThrow(/output/i);
 });
 
-test("leaves no partial output when staging fails", () => {
+test("leaves no partial output when a copy fails mid-staging", () => {
   const { repoRoot, executable } = makeRepo("linux", "x64");
   const output = path.join(base, "out");
-  // A plain file at the output path makes the final rename fail after staging.
-  writeFileSync(output, "blocker");
   expect(() =>
     prepareNativePackage({
       platform: "linux",
@@ -176,8 +176,37 @@ test("leaves no partial output when staging fails", () => {
       executable,
       output,
       repoRoot,
+      copyFile(from, to) {
+        if (path.basename(to).startsWith("rg")) {
+          throw new Error("injected copy failure");
+        }
+        copyFileSync(from, to);
+      },
     }),
-  ).toThrow();
-  expect(readFileSync(output, "utf8")).toBe("blocker");
+  ).toThrow(/injected copy failure/);
+  expect(existsSync(output)).toBe(false);
+  assertNoTempResidue(output);
+});
+
+test("leaves no partial output when a source vanishes during staging", () => {
+  const { repoRoot, executable } = makeRepo("linux", "x64", { withRg: true });
+  const output = path.join(base, "out");
+  const rgSource = path.join(repoRoot, "vendor", "ripgrep", "x64-linux", "rg");
+  expect(() =>
+    prepareNativePackage({
+      platform: "linux",
+      arch: "x64",
+      executable,
+      output,
+      repoRoot,
+      copyFile(from, to) {
+        if (path.basename(to) === "vortex") {
+          rmSync(rgSource);
+        }
+        copyFileSync(from, to);
+      },
+    }),
+  ).toThrow(/ripgrep/);
+  expect(existsSync(output)).toBe(false);
   assertNoTempResidue(output);
 });

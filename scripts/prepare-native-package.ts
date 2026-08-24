@@ -17,13 +17,19 @@ import process from "node:process";
 const PLATFORMS = new Set(["win32", "linux", "darwin"]);
 const ARCHES = new Set(["x64", "arm64"]);
 
+type CopyFn = (from: string, to: string) => void;
+
 type PrepareOptions = {
   platform: string;
   arch: string;
   executable: string;
   output: string;
   repoRoot?: string;
+  copyFile?: CopyFn;
 };
+
+const USAGE =
+  "usage: bun scripts/prepare-native-package.ts --platform <win32|linux|darwin> --arch <x64|arm64> --executable <path> --output <dir>";
 
 function fail(message: string): never {
   throw new Error(message);
@@ -93,7 +99,11 @@ export function prepareNativePackage(options: PrepareOptions): void {
     if (readdirSync(output).length > 0) {
       fail(`--output already exists and is not empty: ${output}`);
     }
-    rmSync(output, { recursive: true });
+    try {
+      rmSync(output, { recursive: true, force: true });
+    } catch (error) {
+      fail(`failed to remove existing empty output directory ${output}: ${(error as Error).message}`);
+    }
   }
 
   const parent = path.dirname(output);
@@ -101,12 +111,13 @@ export function prepareNativePackage(options: PrepareOptions): void {
 
   // Stage into a sibling temp dir so the final rename is atomic.
   const staging = mkdtempSync(path.join(parent, `${path.basename(output)}.tmp-`));
+  const copyFile: CopyFn = options.copyFile ?? ((from, to) => copyFileSync(from, to));
   try {
     mkdirSync(path.join(staging, "bin"), { recursive: true });
-    copyFileSync(options.executable, path.join(staging, "bin", `vortex${suffix}`));
-    copyFileSync(rgSource, path.join(staging, "bin", `rg${suffix}`));
-    copyFileSync(licenseSource, path.join(staging, "LICENSE.md"));
-    copyFileSync(readmeSource, path.join(staging, "README.md"));
+    copyFile(options.executable, path.join(staging, "bin", `vortex${suffix}`));
+    copyFile(rgSource, path.join(staging, "bin", `rg${suffix}`));
+    copyFile(licenseSource, path.join(staging, "LICENSE.md"));
+    copyFile(readmeSource, path.join(staging, "README.md"));
     if (platform !== "win32") {
       chmodSync(path.join(staging, "bin", `vortex${suffix}`), 0o755);
       chmodSync(path.join(staging, "bin", `rg${suffix}`), 0o755);
@@ -120,17 +131,30 @@ export function prepareNativePackage(options: PrepareOptions): void {
 
 function parseArgs(argv: readonly string[]): Required<Omit<PrepareOptions, "repoRoot">> {
   const values = new Map<string, string>();
-  for (let i = 0; i < argv.length; i += 2) {
-    const key = argv[i];
-    const value = argv[i + 1];
-    if (key === undefined || !key.startsWith("--") || value === undefined) {
-      fail(`usage: bun scripts/prepare-native-package.ts --platform <p> --arch <a> --executable <path> --output <dir>`);
+  const known = new Set(["platform", "arch", "executable", "output"]);
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === undefined || !arg.startsWith("--")) {
+      fail(`unexpected argument "${arg ?? ""}"\n${USAGE}`);
     }
-    values.set(key.slice(2), value);
+    const eq = arg.indexOf("=");
+    const key = eq === -1 ? arg.slice(2) : arg.slice(2, eq);
+    if (key === "help" || arg === "-h") {
+      console.log(USAGE);
+      process.exit(0);
+    }
+    if (!known.has(key)) {
+      fail(`unknown flag "${arg}"\n${USAGE}`);
+    }
+    const value = eq === -1 ? argv[++i] : arg.slice(eq + 1);
+    if (value === undefined || value.length === 0) {
+      fail(`missing value for --${key}\n${USAGE}`);
+    }
+    values.set(key, value);
   }
-  for (const required of ["platform", "arch", "executable", "output"] as const) {
+  for (const required of known) {
     if (!values.has(required)) {
-      fail(`missing --${required}`);
+      fail(`missing --${required}\n${USAGE}`);
     }
   }
   return {
