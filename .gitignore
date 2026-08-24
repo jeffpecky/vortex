@@ -11,6 +11,7 @@ cli.js
 # Test artifacts
 coverage/
 .bun/
+*.bun-build
 
 # Logs
 *.log
