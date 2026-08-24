@@ -7,7 +7,7 @@ const PACKAGES = {
   'darwin-arm64': '@sleepyhallow/vortex-darwin-arm64',
 }
 
-export function platformPackage(platform, arch) {
+export function getPlatformPackage(platform, arch) {
   const packageName = PACKAGES[`${platform}-${arch}`]
   if (!packageName) {
     throw new Error(`Unsupported platform/architecture: ${platform}/${arch}`)
@@ -15,6 +15,6 @@ export function platformPackage(platform, arch) {
   return packageName
 }
 
-export function platformExecutable(platform) {
+export function getExecutableName(platform) {
   return platform === 'win32' ? 'vortex.exe' : 'vortex'
 }

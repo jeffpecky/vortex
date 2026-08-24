@@ -4,12 +4,12 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { platformExecutable, platformPackage } from './platform-package.js'
+import { getExecutableName, getPlatformPackage } from './platform-package.js'
 
 export function launch({ platform, arch, args, resolvePackage, spawn, writeError }) {
   let packageName
   try {
-    packageName = platformPackage(platform, arch)
+    packageName = getPlatformPackage(platform, arch)
   } catch (error) {
     writeError(`${error.message}\n`)
     return { status: 1, signal: null }
@@ -25,7 +25,7 @@ export function launch({ platform, arch, args, resolvePackage, spawn, writeError
     return { status: 1, signal: null }
   }
 
-  const executable = join(dirname(packageJson), 'bin', platformExecutable(platform))
+  const executable = join(dirname(packageJson), 'bin', getExecutableName(platform))
   let result
   try {
     result = spawn(executable, args, { stdio: 'inherit', windowsHide: true })
