@@ -1,0 +1,204 @@
+name: Release npm packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: build ${{ matrix.platform }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            suffix: .exe
+          # windows-11-arm label is available to public repositories; drop this
+          # comment if availability changes
+          - os: windows-11-arm
+            platform: win32
+            arch: arm64
+            suffix: .exe
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            suffix: ''
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+            suffix: ''
+          - os: macos-14
+            platform: darwin
+            arch: arm64
+            suffix: ''
+          - os: macos-13
+            platform: darwin
+            arch: x64
+            suffix: ''
+    env:
+      TARGET: ${{ matrix.platform }}-${{ matrix.arch }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
+
+      - name: Install sandbox-runtime dependencies
+        working-directory: src/vendor/@anthropic-ai/sandbox-runtime
+        shell: bash
+        run: bun install --ignore-scripts
+
+      - name: Build JS bundle
+        shell: bash
+        run: bun run build
+
+      - name: Run focused tests
+        shell: bash
+        run: bun test __tests__ scripts
+
+      - name: Compile standalone binary
+        shell: bash
+        run: bun run build:compile
+
+      - name: Verify binary and ripgrep
+        shell: bash
+        run: |
+          test -f "dist/vortex${{ matrix.suffix }}"
+          "dist/rg${{ matrix.suffix }}" --version
+
+      - name: Package native target
+        shell: bash
+        run: bun run package:native -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --executable "dist/vortex${{ matrix.suffix }}" --output ".npm-staged/${{ env.TARGET }}"
+
+      - name: Verify staged package
+        shell: bash
+        run: bun scripts/verify-npm-packages.ts --staged ".npm-staged/${{ env.TARGET }}"
+
+      - name: Pack tarball
+        working-directory: .npm-staged/${{ env.TARGET }}
+        shell: bash
+        run: npm pack --json --ignore-scripts --offline > pack.json
+
+      - name: Write SHA256SUMS
+        working-directory: .npm-staged/${{ env.TARGET }}
+        shell: bash
+        run: sha256sum *.tgz > SHA256SUMS
+
+      - name: Upload staged package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-${{ env.TARGET }}
+          path: .npm-staged/${{ env.TARGET }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish npm packages
+    needs:
+      - native
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: write
+    env:
+      TARGETS: win32-x64 win32-arm64 linux-x64 linux-arm64 darwin-x64 darwin-arm64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+
+      - name: Download staged packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: npm-*
+          path: .npm-downloads
+
+      - name: Restore staging layout
+        shell: bash
+        run: |
+          mkdir -p .npm-staged
+          for dir in .npm-downloads/npm-*; do
+            mv "$dir" ".npm-staged/${dir##*/npm-}"
+          done
+
+      - name: Install Node.js for trusted publishing
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+
+      - name: Reject already published versions
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+.][0-9A-Za-z.-]+)?$' <<<"$VERSION"; then
+            echo "::error::release must run from a v<semver> tag (got $GITHUB_REF_NAME)"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          for name in @sleepyhallow/vortex @sleepyhallow/vortex-win32-x64 @sleepyhallow/vortex-win32-arm64 @sleepyhallow/vortex-linux-x64 @sleepyhallow/vortex-linux-arm64 @sleepyhallow/vortex-darwin-x64 @sleepyhallow/vortex-darwin-arm64; do
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "::error::$name@$VERSION already published"
+              exit 1
+            fi
+          done
+
+      - name: Publish native packages
+        shell: bash
+        run: |
+          for target in $TARGETS; do
+            tarball=".npm-staged/$target/sleepyhallow-vortex-$target-$VERSION.tgz"
+            test -f "$tarball"
+            npm publish "$tarball" --access public --provenance
+          done
+
+      - name: Verify launcher package
+        shell: bash
+        run: bun scripts/verify-npm-packages.ts --root-only
+
+      - name: Pack launcher package
+        shell: bash
+        run: npm pack --json --ignore-scripts --offline > pack.json
+
+      - name: Publish launcher package
+        shell: bash
+        run: npm publish "./sleepyhallow-vortex-$VERSION.tgz" --access public --provenance
+
+      - name: Merge checksums
+        shell: bash
+        run: |
+          cat .npm-staged/*/SHA256SUMS > SHA256SUMS
+          sha256sum "sleepyhallow-vortex-$VERSION.tgz" >> SHA256SUMS
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: |
+            sleepyhallow-vortex-*.tgz
+            .npm-staged/*/sleepyhallow-vortex-*.tgz
+            SHA256SUMS
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
