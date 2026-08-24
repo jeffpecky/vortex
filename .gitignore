@@ -19,3 +19,7 @@ coverage/
 cli.js.map
 sourcemap-extract.tar.gz
 /vendor/
+
+# Release staging
+.npm-staged/
+.smoke/
