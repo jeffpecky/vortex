@@ -198,16 +198,33 @@ function checkPackInventory(
     return failures;
   }
   let entries: string[];
+  if (typeof output !== "string" || output.trim().length === 0) {
+    failures.push(`[${label}] npm pack --json produced no output`);
+    return failures;
+  }
   try {
-    const parsed = JSON.parse(output) as { files?: { path?: unknown }[] }[];
-    entries = (parsed[0]?.files ?? []).map((f) => String(f.path));
+    const parsed = JSON.parse(output) as unknown;
+    const first = Array.isArray(parsed) ? parsed[0] : undefined;
+    const files = (
+      first && typeof first === "object" ? (first as { files?: unknown }).files : undefined
+    );
+    if (!Array.isArray(files)) {
+      throw new Error("output has no files array");
+    }
+    entries = files.map((f) => String((f as { path?: unknown }).path));
   } catch (error) {
-    failures.push(`[${label}] could not parse npm pack --json output: ${(error as Error).message}`);
+    failures.push(`[${label}] could not use npm pack --json output: ${(error as Error).message}`);
     return failures;
   }
   const unexpected = entries.filter((entry) => !allowlist.includes(entry));
   for (const entry of unexpected) {
     failures.push(`[${label}] unexpected file in publish inventory: ${entry} (not in allowlist)`);
+  }
+  const required = allowlist.filter((entry) => entry !== "package.json");
+  for (const entry of required) {
+    if (!entries.includes(entry)) {
+      failures.push(`[${label}] required file missing from publish inventory: ${entry}`);
+    }
   }
   return failures;
 }
@@ -249,19 +266,29 @@ export function verifyNpmPackages(options: VerifyOptions = {}): string[] {
   const pack: PackFn = options.pack ?? defaultRunPack;
 
   let failures = verifyRoot(repoRoot, pack);
+  let rootVersion = "";
   try {
     const rootPkg = readJsonManifest(path.join(repoRoot, "package.json")) as RootManifest;
-    const rootVersion = typeof rootPkg.version === "string" ? rootPkg.version : "";
-    if (options.rootOnly) return failures;
-    for (const dir of scanNativeDirs(repoRoot)) {
-      failures = failures.concat(verifyNativePackage(dir, path.basename(dir), rootVersion, pack));
-    }
-    for (const staged of options.staged ?? []) {
-      const resolved = path.resolve(staged);
-      failures = failures.concat(verifyNativePackage(resolved, staged, rootVersion, pack));
-    }
+    rootVersion = typeof rootPkg.version === "string" ? rootPkg.version : "";
   } catch (error) {
     failures.push(`[root] ${(error as Error).message}`);
+    return failures;
+  }
+  if (options.rootOnly) return failures;
+  for (const dir of scanNativeDirs(repoRoot)) {
+    try {
+      failures = failures.concat(verifyNativePackage(dir, path.basename(dir), rootVersion, pack));
+    } catch (error) {
+      failures.push(`[${path.basename(dir)}] ${(error as Error).message}`);
+    }
+  }
+  for (const staged of options.staged ?? []) {
+    const resolved = path.resolve(staged);
+    try {
+      failures = failures.concat(verifyNativePackage(resolved, staged, rootVersion, pack));
+    } catch (error) {
+      failures.push(`[${staged}] ${(error as Error).message}`);
+    }
   }
   return failures;
 }

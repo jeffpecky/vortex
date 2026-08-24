@@ -334,6 +334,58 @@ describe("verify-npm-packages", () => {
     ).toBe(true);
   });
 
+  test("fails when required files are absent from the pack inventory", () => {
+    const fixture = makeRepo();
+    const baseFake = fakePack(fixture);
+    const failures = verifyNpmPackages({
+      repoRoot: fixture.repo,
+      pack(dir) {
+        const parsed = JSON.parse(baseFake(dir)) as { files: { path: string }[] }[];
+        if (dir === fixture.repo) {
+          parsed[0]!.files = parsed[0]!.files.filter(
+            (f) => f.path !== "bin/platform-package.js" && f.path !== "README.md",
+          );
+        }
+        return JSON.stringify(parsed);
+      },
+    });
+    expect(
+      failures.some((f) => f.startsWith("[root]") && f.includes("bin/platform-package.js")),
+    ).toBe(true);
+    expect(failures.some((f) => f.startsWith("[root]") && f.includes("README.md"))).toBe(true);
+  });
+
+  test("fails loudly on empty or malformed pack output", () => {
+    const fixture = makeRepo();
+    let failures = verifyNpmPackages({ repoRoot: fixture.repo, pack: () => "" });
+    expect(failures.some((f) => f.startsWith("[root]") && /no output/i.test(f))).toBe(true);
+
+    failures = verifyNpmPackages({
+      repoRoot: fixture.repo,
+      pack: () => JSON.stringify({ files: [] }),
+    });
+    expect(failures.some((f) => f.startsWith("[root]") && /files array/i.test(f))).toBe(true);
+
+    failures = verifyNpmPackages({ repoRoot: fixture.repo, pack: () => "not json" });
+    expect(failures.some((f) => f.startsWith("[root]") && /pack --json/i.test(f))).toBe(true);
+  });
+
+  test("labels native and staged failures without the [root] prefix", () => {
+    const fixture = makeRepo();
+    const missingDir = path.join(base, "staging", "does-not-exist");
+    const failures = verifyNpmPackages({
+      repoRoot: fixture.repo,
+      staged: [missingDir],
+      pack: fakePack(fixture),
+    });
+    expect(failures.length).toBeGreaterThan(0);
+    expect(failures.every((f) => !f.startsWith(`[${missingDir}] [root]`))).toBe(true);
+    expect(failures.some((f) => f.startsWith(`[${missingDir}]`))).toBe(true);
+    expect(failures.every((f) => !(f.startsWith("[root]") && f.includes("does-not-exist")))).toBe(
+      true,
+    );
+  });
+
   test("root launcher checks bin script and provenance metadata", () => {
     const fixture = makeRepo({ root: { wrongPublishConfig: true } });
     rmSync(path.join(fixture.repo, "bin", "vortex.js"));
