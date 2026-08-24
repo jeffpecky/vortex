@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,6 +16,23 @@ import {
   getPlatformPackage,
 } from '../bin/platform-package.js'
 import { launch } from '../bin/vortex.js'
+
+function canCreateSymlink() {
+  const root = mkdtempSync(join(tmpdir(), 'vortex-symlink-check-'))
+  try {
+    const target = join(root, 'target')
+    writeFileSync(target, '')
+    symlinkSync(target, join(root, 'link'), 'file')
+    return true
+  } catch (error) {
+    if (['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) return false
+    throw error
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
+
+const symlinksAvailable = canCreateSymlink()
 
 function createLauncherFixture() {
   const root = mkdtempSync(join(tmpdir(), 'vortex-launcher-'))
@@ -160,6 +178,27 @@ describe('launcher process behavior', () => {
       expect(result.stdout.trim()).toBe('["alpha","two words"]')
       expect(result.status).toBe(19)
       expect(result.signal).toBeNull()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it.skipIf(!symlinksAvailable)('launches through an npm-style symlink', () => {
+    const root = createLauncherFixture()
+    try {
+      const child = join(root, 'child.mjs')
+      const npmBin = join(root, 'node_modules', '.bin')
+      const linkedLauncher = join(npmBin, 'vortex')
+      mkdirSync(npmBin, { recursive: true })
+      writeFileSync(child, 'console.log(process.argv[2]); process.exit(17)')
+      symlinkSync(join(root, 'bin', 'vortex.js'), linkedLauncher, 'file')
+
+      const result = spawnSync(process.execPath, [linkedLauncher, child, 'through-link'], {
+        encoding: 'utf8',
+      })
+
+      expect(result.stdout.trim()).toBe('through-link')
+      expect(result.status).toBe(17)
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
