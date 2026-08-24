@@ -20,12 +20,13 @@ describe('build configuration', () => {
     const pkgPath = resolve(process.cwd(), 'package.json')
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
     
-    // Extract version from build.ts
-    const versionMatch = buildContent.match(/const version = process\.env\.VERSION \|\| '([^']+)'/)
+    // Version must be derived from package.json with env override
+    const versionMatch = buildContent.match(
+      /const version = process\.env\.VERSION \|\| JSON\.parse\(readFileSync\('package\.json', 'utf8'\)\)\.version/,
+    )
     expect(versionMatch).toBeTruthy()
-    
-    const buildVersion = versionMatch![1]
-    expect(buildVersion).toBe(pkg.version)
+
+    expect(buildContent).not.toContain("'2.1.88'")
   })
 
   it('should define feature flags with proper structure', () => {

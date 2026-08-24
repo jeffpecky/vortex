@@ -22,10 +22,10 @@
  */
 
 import type { BunPlugin } from 'bun';
-import { copyFileSync, existsSync, mkdirSync, statSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 
-const version = process.env.VERSION || '2.1.88';
+const version = process.env.VERSION || JSON.parse(readFileSync('package.json', 'utf8')).version;
 const buildTime = new Date().toISOString();
 
 // ── Compile mode ───────────────────────────────────────────────────────────
