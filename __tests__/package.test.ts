@@ -77,6 +77,8 @@ describe('package.json configuration', () => {
     expect(readme).toContain('reconstruction')
     expect(readme).toContain('@anthropic-ai/claude-code@2.1.88')
     expect(readme).toContain('https://github.com/jeffpecky/vortex/issues')
+    expect(readme).toContain('https://www.npmjs.com/package/@sleepyhallow/vortex')
+    expect(readme).toContain('https://img.shields.io/npm/v/@sleepyhallow/vortex.svg')
     expect(readme).not.toContain('Rebuilding from the extracted source is **not feasible**')
     expect(readme).not.toContain('source/          # extracted source tree')
   })
