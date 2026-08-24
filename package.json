@@ -35,6 +35,7 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "verify:npm-packages": "bun scripts/verify-npm-packages.ts",
+    "smoke:npm-install": "bun scripts/smoke-npm-install.ts",
     "prepack": "bun scripts/verify-npm-packages.ts --root-only",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",

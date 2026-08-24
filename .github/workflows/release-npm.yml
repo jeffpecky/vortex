@@ -111,6 +111,16 @@ jobs:
           path: .npm-staged/${{ env.TARGET }}
           if-no-files-found: error
 
+      - name: Smoke test packed installation
+        shell: bash
+        run: |
+          VERSION="$(bun -p "require('./package.json').version")"
+          mkdir -p .smoke
+          npm pack --ignore-scripts --offline --pack-destination .smoke > /dev/null
+          bun scripts/smoke-npm-install.ts \
+            ".smoke/sleepyhallow-vortex-$VERSION.tgz" \
+            ".npm-staged/${{ env.TARGET }}/sleepyhallow-vortex-${{ env.TARGET }}-$VERSION.tgz"
+
   publish:
     name: Publish npm packages
     needs:

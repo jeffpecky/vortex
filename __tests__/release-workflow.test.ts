@@ -150,6 +150,19 @@ describe('release-npm native job', () => {
     expect(yaml).toContain('name: npm-${{ env.TARGET }}')
     expect(yaml).toContain('if-no-files-found: error')
   })
+
+  it('smoke-tests packed installation after uploading the artifact', () => {
+    const upload = yaml.indexOf('Upload staged package')
+    const smoke = yaml.indexOf('Smoke test packed installation')
+    const publishJobStart = yaml.indexOf('  publish:')
+    expect(upload).toBeGreaterThanOrEqual(0)
+    expect(smoke).toBeGreaterThan(upload)
+    expect(smoke).toBeLessThan(publishJobStart)
+    expect(yaml).toContain('npm pack --ignore-scripts --offline --pack-destination .smoke')
+    expect(yaml).toContain(
+      '".npm-staged/${{ env.TARGET }}/sleepyhallow-vortex-${{ env.TARGET }}-$VERSION.tgz"',
+    )
+  })
 })
 
 describe('release-npm publish job', () => {
