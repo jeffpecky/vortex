@@ -14,7 +14,7 @@
   },
   "type": "module",
   "author": "sleepyhallow",
-  "license": "SEE LICENSE IN README.md",
+  "license": "SEE LICENSE IN LICENSE.md",
   "description": "Use Claude, Anthropic's AI assistant, right from your terminal. Claude can understand your codebase, edit files, run terminal commands, and handle entire workflows for you.",
   "homepage": "https://github.com/jeffpecky/vortex",
   "bugs": {

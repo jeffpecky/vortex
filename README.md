@@ -83,16 +83,8 @@ For Vortex support and bug reports, file a [GitHub issue](https://github.com/jef
 
 Join the [Claude Developers Discord](https://anthropic.com/discord) to connect with other developers using Claude Code. Get help, share feedback, and discuss your projects with the community.
 
-## Data collection, usage, and retention
+## Privacy and upstream services
 
-When you use Claude Code, we collect feedback, which includes usage data (such as code acceptance or rejections), associated conversation data, and user feedback submitted via the `/bug` command.
+Vortex reconstruction maintainers do not claim to operate Anthropic services, collect Claude Code feedback, or provide Anthropic's privacy safeguards. When Vortex connects to Anthropic services, Anthropic's own terms and policies apply to those services.
 
-### How we use your data
-
-See our [data usage policies](https://code.claude.com/docs/en/data-usage).
-
-### Privacy safeguards
-
-We have implemented several safeguards to protect your data, including limited retention periods for sensitive information and restricted access to user session data.
-
-For full details, please review our [Commercial Terms of Service](https://www.anthropic.com/legal/commercial-terms) and [Privacy Policy](https://www.anthropic.com/legal/privacy).
+See Anthropic's [data usage policies](https://code.claude.com/docs/en/data-usage), [Commercial Terms of Service](https://www.anthropic.com/legal/commercial-terms), and [Anthropic Privacy Policy](https://www.anthropic.com/legal/privacy) for upstream service details.

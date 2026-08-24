@@ -19,6 +19,7 @@ describe('package.json configuration', () => {
     expect(pkg.author).toBe('sleepyhallow')
     expect(pkg.homepage).toBe('https://github.com/jeffpecky/vortex')
     expect(pkg.bugs).toEqual({ url: 'https://github.com/jeffpecky/vortex/issues' })
+    expect(pkg.license).toBe('SEE LICENSE IN LICENSE.md')
     expect(pkg.publishConfig).toEqual({ access: 'public', provenance: true })
     expect(pkg.files).toEqual(['bin/', 'dist/', 'native/'])
     expect(pkg.scripts.prepublishOnly).toBeUndefined()
@@ -78,5 +79,15 @@ describe('package.json configuration', () => {
     expect(readme).toContain('https://github.com/jeffpecky/vortex/issues')
     expect(readme).not.toContain('Rebuilding from the extracted source is **not feasible**')
     expect(readme).not.toContain('source/          # extracted source tree')
+  })
+
+  it('should distinguish Vortex privacy from upstream Anthropic policies', () => {
+    const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8')
+
+    expect(readme).toContain('Vortex reconstruction maintainers')
+    expect(readme).toContain('Anthropic services')
+    expect(readme).toContain('Anthropic Privacy Policy')
+    expect(readme).not.toContain('When you use Claude Code, we collect feedback')
+    expect(readme).not.toContain('We have implemented several safeguards')
   })
 })
