@@ -90,6 +90,29 @@ describe('package.json configuration', () => {
       ),
     )
     expect(native).toEqual(Object.fromEntries(expected))
+    expect(Object.keys(pkg.optionalDependencies ?? {}).filter((n) => n.startsWith('@img/sharp-'))).toEqual([])
+  })
+
+  it('should mirror native optionalDependencies in the lockfile', () => {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
+    const lock = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'bun.lock'), 'utf8').replace(/,\s*([}\]])/g, '$1'),
+    )
+    const root = Object.values(lock.workspaces)[0] as {
+      optionalDependencies?: Record<string, string>
+    }
+
+    const expected = Object.fromEntries(
+      Object.entries(pkg.optionalDependencies ?? {}).filter(([name]) =>
+        name.startsWith('@sleepyhallow/vortex-'),
+      ),
+    )
+    const locked = Object.fromEntries(
+      Object.entries(root.optionalDependencies ?? {}).filter(([name]) =>
+        name.startsWith('@sleepyhallow/vortex-'),
+      ),
+    )
+    expect(locked).toEqual(expected)
   })
 
   it('should document public installation and source development', () => {
