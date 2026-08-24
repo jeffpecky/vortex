@@ -31,6 +31,7 @@
   "scripts": {
     "build": "bun run build.ts",
     "build:compile": "bun run build.ts -- --compile",
+    "package:native": "bun scripts/prepare-native-package.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
