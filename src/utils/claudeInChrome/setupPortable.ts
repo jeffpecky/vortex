@@ -7,14 +7,20 @@ export const CHROME_EXTENSION_URL = 'https://claude.ai/chrome'
 
 // Production extension ID
 const PROD_EXTENSION_ID = 'fcoeoabgfenejglbffodgkkbkcdhcgfn'
+// Open-source fork extension ID (unpacked; stable via manifest key)
+export const FORK_EXTENSION_ID = 'mjfljffcfhkalcgfefkccjcjdpfgifjh'
 // Dev extension IDs (for internal use)
 const DEV_EXTENSION_ID = 'dihbgbndebgnbjfmelmegjepbnkhlgni'
 const ANT_EXTENSION_ID = 'dngcpimnedloihjnnfngkgjoidhnaolf'
 
-function getExtensionIds(): string[] {
+export function getExtensionIds(): string[] {
   return process.env.USER_TYPE === 'ant'
-    ? [PROD_EXTENSION_ID, DEV_EXTENSION_ID, ANT_EXTENSION_ID]
-    : [PROD_EXTENSION_ID]
+    ? [PROD_EXTENSION_ID, FORK_EXTENSION_ID, DEV_EXTENSION_ID, ANT_EXTENSION_ID]
+    : [PROD_EXTENSION_ID, FORK_EXTENSION_ID]
+}
+
+export function getNativeHostAllowedOrigins(): string[] {
+  return getExtensionIds().map((id) => `chrome-extension://${id}/`)
 }
 
 // Must match ChromiumBrowser from common.ts

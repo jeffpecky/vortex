@@ -29,7 +29,10 @@ import {
   openInChrome,
 } from './common.js'
 import { getChromeSystemPrompt } from './prompt.js'
-import { isChromeExtensionInstalledPortable } from './setupPortable.js'
+import {
+  getNativeHostAllowedOrigins,
+  isChromeExtensionInstalledPortable,
+} from './setupPortable.js'
 
 const CHROME_EXTENSION_RECONNECT_URL = 'https://clau.de/chrome/reconnect'
 
@@ -201,15 +204,7 @@ export async function installChromeNativeHostManifest(
     description: 'Claude Code Browser Extension Native Host',
     path: manifestBinaryPath,
     type: 'stdio',
-    allowed_origins: [
-      `chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/`, // PROD_EXTENSION_ID
-      ...(process.env.USER_TYPE === 'ant'
-        ? [
-            'chrome-extension://dihbgbndebgnbjfmelmegjepbnkhlgni/', // DEV_EXTENSION_ID
-            'chrome-extension://dngcpimnedloihjnnfngkgjoidhnaolf/', // ANT_EXTENSION_ID
-          ]
-        : []),
-    ],
+    allowed_origins: getNativeHostAllowedOrigins(),
   }
 
   const manifestContent = jsonStringify(manifest, null, 2)
