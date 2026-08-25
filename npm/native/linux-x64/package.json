@@ -1,6 +1,6 @@
 {
   "name": "@sleepyhallow/vortex-linux-x64",
-  "version": "0.1.0",
+  "version": "2.1.88",
   "description": "Native binaries for @sleepyhallow/vortex on linux-x64.",
   "type": "module",
   "os": ["linux"],
