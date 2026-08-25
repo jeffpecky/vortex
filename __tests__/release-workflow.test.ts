@@ -16,7 +16,7 @@ const TARGET_RUNNERS = [
 const NATIVE_TARGETS = TARGET_RUNNERS.map((t) => `${t.platform}-${t.arch}`)
 
 function childBlock(text: string, header: string): string[] {
-  const lines = text.split('\n')
+  const lines = text.split('\n').map((l) => l.replace(/\r$/, ''))
   const start = lines.indexOf(header)
   if (start === -1) return []
   const indent = header.search(/\S/)
@@ -30,7 +30,7 @@ function childBlock(text: string, header: string): string[] {
 }
 
 function stepBlock(yamlText: string, stepName: string): string {
-  const lines = yamlText.split('\n')
+  const lines = yamlText.split('\n').map((l) => l.replace(/\r$/, ''))
   const start = lines.findIndex((line) => line.trim() === `- name: ${stepName}`)
   if (start === -1) return ''
   const out: string[] = []
@@ -41,7 +41,7 @@ function stepBlock(yamlText: string, stepName: string): string {
   return out.join('\n')
 }
 
-const yaml = existsSync(WORKFLOW_PATH) ? readFileSync(WORKFLOW_PATH, 'utf8') : ''
+const yaml = existsSync(WORKFLOW_PATH) ? readFileSync(WORKFLOW_PATH, 'utf8').replace(/\r\n/g, '\n') : ''
 
 describe('release-npm workflow structure', () => {
   it('exists', () => {

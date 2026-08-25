@@ -8,7 +8,7 @@ describe('package.json configuration', () => {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
     
     expect(pkg.name).toBe('@sleepyhallow/vortex')
-    expect(pkg.version).toBe('0.1.0')
+    expect(pkg.version).toBe('2.1.88')
     expect(pkg.type).toBe('module')
   })
 
