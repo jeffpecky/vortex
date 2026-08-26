@@ -105,9 +105,10 @@ export function _resetTmuxControlModeProbeForTesting(): void {
 }
 
 /**
- * Runtime env-var check only. Default is ON for all users (like new Claude),
- * but auto-disabled under tmux (alt-screen + mouse tracking cause issues).
- * Set CLAUDE_CODE_NO_FLICKER=0 to force off, CLAUDE_CODE_NO_FLICKER=1 to force on.
+ * Runtime env-var check only. Ants default to on (CLAUDE_CODE_NO_FLICKER=0
+ * to opt out); external users default to off (CLAUDE_CODE_NO_FLICKER=1 to
+ * opt in). Fullscreen adds extra features (git ops, elapsed time, MCP progress)
+ * but base collapsing works in all modes.
  */
 export function isFullscreenEnvEnabled(): boolean {
   // Explicit user opt-out always wins.
@@ -135,8 +136,8 @@ export function isFullscreenEnvEnabled(): boolean {
     }
     return false
   }
-  // Default to ON for all users (like new Claude)
-  return true
+  // Default: ON for Anthropic employees, OFF for external users
+  return process.env.USER_TYPE === 'ant'
 }
 
 /**
