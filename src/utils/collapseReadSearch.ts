@@ -228,12 +228,11 @@ export function getToolSearchOrReadInfo(
   )
   const isList = result.isList ?? false
   const isCollapsible = result.isSearch || result.isRead || isList
-  // Under fullscreen mode, non-search/read Bash commands are also collapsible
-  // as their own category — "Ran N bash commands" instead of breaking the group.
+  // Non-search/read Bash commands are collapsible as their own category —
+  // "Ran N bash commands" instead of breaking the group.
   return {
     isCollapsible:
-      isCollapsible ||
-      (isFullscreenEnvEnabled() ? toolName === BASH_TOOL_NAME : false),
+      isCollapsible || toolName === BASH_TOOL_NAME,
     isSearch: result.isSearch,
     isRead: result.isRead,
     isList,
@@ -241,9 +240,7 @@ export function getToolSearchOrReadInfo(
     isMemoryWrite: false,
     isAbsorbedSilently: false,
     ...(tool.isMcp && { mcpServerName: tool.mcpInfo?.serverName }),
-    isBash: isFullscreenEnvEnabled()
-      ? !isCollapsible && toolName === BASH_TOOL_NAME
-      : undefined,
+    isBash: !isCollapsible && toolName === BASH_TOOL_NAME,
   }
 }
 
@@ -656,15 +653,17 @@ function createEmptyGroup(): GroupAccumulator {
   }
   group.mcpCallCount = 0
   group.mcpServerNames = new Set()
+  // Bash tracking always initialized (bash collapsing works in all modes)
+  group.bashCount = 0
+  group.bashCommands = new Map()
+  // Git operations only tracked in fullscreen mode
   if (isFullscreenEnvEnabled()) {
-    group.bashCount = 0
-    group.bashCommands = new Map()
     group.commits = []
     group.pushes = []
     group.branches = []
     group.prs = []
-    group.gitOpBashCount = 0
   }
+  group.gitOpBashCount = 0
   return group
 }
 
@@ -740,11 +739,13 @@ function createCollapsedGroup(
     result.mcpCallCount = group.mcpCallCount
     result.mcpServerNames = [...(group.mcpServerNames ?? [])]
   }
+  // Bash count always added (bash collapsing works in all modes)
+  if ((group.bashCount ?? 0) > 0) {
+    result.bashCount = group.bashCount
+    result.gitOpBashCount = group.gitOpBashCount
+  }
+  // Git operations only in fullscreen mode
   if (isFullscreenEnvEnabled()) {
-    if ((group.bashCount ?? 0) > 0) {
-      result.bashCount = group.bashCount
-      result.gitOpBashCount = group.gitOpBashCount
-    }
     if ((group.commits?.length ?? 0) > 0) result.commits = group.commits
     if ((group.pushes?.length ?? 0) > 0) result.pushes = group.pushes
     if ((group.branches?.length ?? 0) > 0) result.branches = group.branches
@@ -820,7 +821,7 @@ export function collapseReadSearchGroups(
         if (input?.query) {
           currentGroup.latestDisplayHint = `"${input.query}"`
         }
-      } else if (isFullscreenEnvEnabled() && toolInfo.isBash) {
+      } else if (toolInfo.isBash) {
         // Non-search/read Bash command — counted separately so the summary
         // says "Ran N bash commands" instead of breaking the group.
         const count = countToolUses(msg)

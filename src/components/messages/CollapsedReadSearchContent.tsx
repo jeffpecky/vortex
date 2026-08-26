@@ -185,7 +185,7 @@ export function CollapsedReadSearchContent({
   // same command isn't counted twice. gitOpBashCount is read live (no max-ref
   // needed — it's 0 until results arrive, then only grows).
   const gitOpBashCount = message.gitOpBashCount ?? 0;
-  const bashCount = isFullscreenEnvEnabled() ? Math.max(0, maxBashCountRef.current - gitOpBashCount) : 0;
+  const bashCount = Math.max(0, maxBashCountRef.current - gitOpBashCount);
   const hasNonMemoryOps = searchCount > 0 || readCount > 0 || listCount > 0 || replCount > 0 || mcpCallCount > 0 || bashCount > 0 || gitOpBashCount > 0;
   const readPaths = message.readFilePaths;
   const searchArgs = message.searchArgs;
@@ -399,7 +399,7 @@ export function CollapsedReadSearchContent({
           </>}
       </Text>);
   }
-  if (isFullscreenEnvEnabled() && bashCount > 0) {
+  if (bashCount > 0) {
     const isFirst_4 = nonMemParts.length === 0;
     const verb_1 = isActiveGroup ? isFirst_4 ? 'Running' : 'running' : isFirst_4 ? 'Ran' : 'ran';
     if (!isFirst_4) {
