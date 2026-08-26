@@ -105,9 +105,9 @@ export function _resetTmuxControlModeProbeForTesting(): void {
 }
 
 /**
- * Runtime env-var check only. Ants default to on (CLAUDE_CODE_NO_FLICKER=0
- * to opt out); external users default to off (CLAUDE_CODE_NO_FLICKER=1 to
- * opt in).
+ * Runtime env-var check only. Default is ON for all users (like new Claude),
+ * but auto-disabled under tmux (alt-screen + mouse tracking cause issues).
+ * Set CLAUDE_CODE_NO_FLICKER=0 to force off, CLAUDE_CODE_NO_FLICKER=1 to force on.
  */
 export function isFullscreenEnvEnabled(): boolean {
   // Explicit user opt-out always wins.
@@ -125,7 +125,18 @@ export function isFullscreenEnvEnabled(): boolean {
     }
     return false
   }
-  return process.env.USER_TYPE === 'ant'
+  // Auto-disable under regular tmux: alt-screen + mouse tracking cause issues.
+  if (process.env.TMUX) {
+    if (!loggedTmuxCcDisable) {
+      loggedTmuxCcDisable = true
+      logForDebugging(
+        'fullscreen disabled: tmux session detected · set CLAUDE_CODE_NO_FLICKER=1 to override',
+      )
+    }
+    return false
+  }
+  // Default to ON for all users (like new Claude)
+  return true
 }
 
 /**

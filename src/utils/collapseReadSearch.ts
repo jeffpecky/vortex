@@ -14,6 +14,11 @@ import {
   type PrAction,
 } from '../tools/shared/gitOperationTracking.js'
 import { TOOL_SEARCH_TOOL_NAME } from '../tools/ToolSearchTool/prompt.js'
+import { TASK_CREATE_TOOL_NAME } from '../tools/TaskCreateTool/constants.js'
+import { TASK_GET_TOOL_NAME } from '../tools/TaskGetTool/constants.js'
+import { TASK_LIST_TOOL_NAME } from '../tools/TaskListTool/constants.js'
+import { TASK_UPDATE_TOOL_NAME } from '../tools/TaskUpdateTool/constants.js'
+import { TODO_WRITE_TOOL_NAME } from '../tools/TodoWriteTool/constants.js'
 import type {
   CollapsedReadSearchGroup,
   CollapsibleMessage,
@@ -174,12 +179,17 @@ export function getToolSearchOrReadInfo(
     }
   }
 
-  // Meta-operations absorbed silently: Snip (context cleanup) and ToolSearch
-  // (lazy tool schema loading). Neither should break a collapse group or
-  // contribute to its count, but both stay visible in verbose mode.
+  // Meta-operations absorbed silently: Snip (context cleanup), ToolSearch
+  // (lazy tool schema loading), and task/todo updates. None should break a
+  // collapse group or contribute to its count, but stay visible in verbose mode.
   if (
     (feature('HISTORY_SNIP') && toolName === SNIP_TOOL_NAME) ||
-    (isFullscreenEnvEnabled() && toolName === TOOL_SEARCH_TOOL_NAME)
+    (isFullscreenEnvEnabled() && toolName === TOOL_SEARCH_TOOL_NAME) ||
+    toolName === TODO_WRITE_TOOL_NAME ||
+    toolName === TASK_CREATE_TOOL_NAME ||
+    toolName === TASK_GET_TOOL_NAME ||
+    toolName === TASK_LIST_TOOL_NAME ||
+    toolName === TASK_UPDATE_TOOL_NAME
   ) {
     return {
       isCollapsible: true,
