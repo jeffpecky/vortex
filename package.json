@@ -1,6 +1,6 @@
 {
   "name": "@sleepyhallow/vortex",
-  "version": "2.1.88",
+  "version": "2.1.89",
   "bin": {
     "vortex": "bin/vortex.js"
   },
