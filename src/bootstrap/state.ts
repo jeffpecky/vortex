@@ -118,6 +118,8 @@ type State = {
   lastAPIRequestMessages: BetaMessageStreamParams['messages'] | null
   // Last auto-mode classifier request(s) for /share transcript
   lastClassifierRequests: unknown[] | null
+  // Classifier model selected for each session after first successful request.
+  classifierModelBySession: Map<SessionId, string>
   // CLAUDE.md content cached by context.ts for the auto-mode classifier.
   // Breaks the yoloClassifier → claudemd → filesystem → permissions cycle.
   cachedClaudeMdContent: string | null
@@ -344,6 +346,7 @@ function getInitialState(): State {
     lastAPIRequestMessages: null,
     // Last auto-mode classifier request(s) for /share transcript
     lastClassifierRequests: null,
+    classifierModelBySession: new Map(),
     cachedClaudeMdContent: null,
     // In-memory error log for recent errors
     inMemoryErrorLog: [],
@@ -1204,6 +1207,14 @@ export function getLastClassifierRequests(): unknown[] | null {
   return STATE.lastClassifierRequests
 }
 
+export function getSessionClassifierModel(): string | undefined {
+  return STATE.classifierModelBySession.get(STATE.sessionId)
+}
+
+export function setSessionClassifierModel(model: string): void {
+  STATE.classifierModelBySession.set(STATE.sessionId, model)
+}
+
 export function setCachedClaudeMdContent(content: string | null): void {
   STATE.cachedClaudeMdContent = content
 }
@@ -1289,6 +1300,16 @@ export type SessionCronTask = {
    * instead of the main REPL command queue. Session-only — never written to disk.
    */
   agentId?: string
+  /**
+   * For dynamic wakeups: epoch ms when this one-shot task should fire.
+   * If set, cron is ignored and the scheduler fires at this time.
+   */
+  fireAt?: number
+  /**
+   * Marks a task as a self-paced loop wakeup (not a cron job).
+   * Wakeups are removed before delivery to prevent duplicate fires.
+   */
+  isWakeup?: boolean
 }
 
 export function getSessionCronTasks(): SessionCronTask[] {

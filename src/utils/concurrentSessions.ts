@@ -16,7 +16,26 @@ import { jsonParse, jsonStringify } from './slowOperations.js'
 import { getAgentId } from './teammate.js'
 
 export type SessionKind = 'interactive' | 'bg' | 'daemon' | 'daemon-worker'
-export type SessionStatus = 'busy' | 'idle' | 'waiting'
+export type SessionStatus = 'busy' | 'idle' | 'waiting' | 'completed'
+
+export type ConcurrentSession = {
+  pid: number
+  sessionId?: string
+  cwd?: string
+  startedAt?: number
+  kind: SessionKind
+  entrypoint?: string
+  messagingSocketPath?: string
+  name?: string
+  logPath?: string
+  agent?: string
+  tmuxSessionName?: string
+  bridgeSessionId?: string | null
+  status?: SessionStatus
+  waitingFor?: string
+  updatedAt?: number
+  endedAt?: number
+}
 
 function getSessionsDir(): string {
   return join(getClaudeConfigHomeDir(), 'sessions')
@@ -65,7 +84,24 @@ export async function registerSession(): Promise<boolean> {
 
   registerCleanup(async () => {
     try {
-      await unlink(pidFile)
+      if (kind === 'bg') {
+        const data = jsonParse(await readFile(pidFile, 'utf8')) as Record<
+          string,
+          unknown
+        >
+        const endedAt = Date.now()
+        await writeFile(
+          pidFile,
+          jsonStringify({
+            ...data,
+            status: 'completed',
+            endedAt,
+            updatedAt: endedAt,
+          }),
+        )
+      } else {
+        await unlink(pidFile)
+      }
     } catch {
       // ENOENT is fine (already deleted or never written)
     }
@@ -91,6 +127,7 @@ export async function registerSession(): Promise<boolean> {
               name: process.env.CLAUDE_CODE_SESSION_NAME,
               logPath: process.env.CLAUDE_CODE_SESSION_LOG,
               agent: process.env.CLAUDE_CODE_AGENT,
+              tmuxSessionName: process.env.CLAUDE_CODE_TMUX_SESSION,
             }
           : {}),
       }),
@@ -161,6 +198,119 @@ export async function updateSessionActivity(patch: {
 }
 
 /**
+ * List live concurrent CLI sessions (including this one).
+ * Malformed records are ignored. Dead records are swept outside WSL.
+ */
+export async function listConcurrentSessions(): Promise<ConcurrentSession[]> {
+  const dir = getSessionsDir()
+  let files: string[]
+  try {
+    files = await readdir(dir)
+  } catch (e) {
+    if (!isFsInaccessible(e)) {
+      logForDebugging(`[concurrentSessions] readdir failed: ${errorMessage(e)}`)
+    }
+    return []
+  }
+
+  const sessions: ConcurrentSession[] = []
+  for (const file of files) {
+    if (!/^\d+\.json$/.test(file)) continue
+
+    const pid = Number(file.slice(0, -5))
+
+    try {
+      const value = jsonParse(await readFile(join(dir, file), 'utf8')) as Record<
+        string,
+        unknown
+      >
+      if (value.pid !== pid) continue
+
+      const kind = value.kind
+      const isManagedKind = kind === 'bg'
+      const isCompleted =
+        isManagedKind &&
+        value.status === 'completed' &&
+        typeof value.endedAt === 'number' &&
+        Date.now() - value.endedAt < 24 * 60 * 60 * 1000
+      const live = pid === process.pid || isProcessRunning(pid)
+      if (!live && !isCompleted) {
+        if (getPlatform() !== 'wsl') {
+          void unlink(join(dir, file)).catch(() => {})
+        }
+        continue
+      }
+
+      sessions.push({
+        pid,
+        kind:
+          kind === 'bg' || kind === 'daemon' || kind === 'daemon-worker'
+            ? kind
+            : 'interactive',
+        ...(typeof value.sessionId === 'string'
+          ? { sessionId: value.sessionId }
+          : {}),
+        ...(typeof value.cwd === 'string' ? { cwd: value.cwd } : {}),
+        ...(typeof value.startedAt === 'number'
+          ? { startedAt: value.startedAt }
+          : {}),
+        ...(typeof value.entrypoint === 'string'
+          ? { entrypoint: value.entrypoint }
+          : {}),
+        ...(typeof value.messagingSocketPath === 'string'
+          ? { messagingSocketPath: value.messagingSocketPath }
+          : {}),
+        ...(typeof value.name === 'string' ? { name: value.name } : {}),
+        ...(typeof value.logPath === 'string'
+          ? { logPath: value.logPath }
+          : {}),
+        ...(typeof value.agent === 'string' ? { agent: value.agent } : {}),
+        ...(typeof value.tmuxSessionName === 'string'
+          ? { tmuxSessionName: value.tmuxSessionName }
+          : {}),
+        ...(typeof value.bridgeSessionId === 'string' ||
+        value.bridgeSessionId === null
+          ? { bridgeSessionId: value.bridgeSessionId }
+          : {}),
+        ...(value.status === 'busy' ||
+        value.status === 'idle' ||
+        value.status === 'waiting' ||
+        value.status === 'completed'
+          ? { status: value.status }
+          : {}),
+        ...(typeof value.waitingFor === 'string'
+          ? { waitingFor: value.waitingFor }
+          : {}),
+        ...(typeof value.updatedAt === 'number'
+          ? { updatedAt: value.updatedAt }
+          : {}),
+        ...(typeof value.endedAt === 'number'
+          ? { endedAt: value.endedAt }
+          : {}),
+      })
+    } catch (e) {
+      logForDebugging(
+        `[concurrentSessions] invalid ${file}: ${errorMessage(e)}`,
+      )
+    }
+  }
+
+  return sessions.sort(
+    (a, b) =>
+      (b.updatedAt ?? b.startedAt ?? 0) -
+      (a.updatedAt ?? a.startedAt ?? 0),
+  )
+}
+
+/**
+ * Remove one session registry record after its managed process stops.
+ */
+export async function removeConcurrentSession(pid: number): Promise<void> {
+  if (pid === process.pid) return
+  await unlink(join(getSessionsDir(), `${pid}.json`)).catch(() => {})
+}
+
+/**
  * Count live concurrent CLI sessions (including this one).
  * Filters out stale PID files (crashed sessions) and deletes them.
  * Returns 0 on any error (conservative).
@@ -192,6 +342,22 @@ export async function countConcurrentSessions(): Promise<number> {
     if (isProcessRunning(pid)) {
       count++
     } else if (getPlatform() !== 'wsl') {
+      // Preserve recent managed completions for the sessions panel.
+      try {
+        const value = jsonParse(
+          await readFile(join(dir, file), 'utf8'),
+        ) as Record<string, unknown>
+        if (
+          value.kind === 'bg' &&
+          value.status === 'completed' &&
+          typeof value.endedAt === 'number' &&
+          Date.now() - value.endedAt < 24 * 60 * 60 * 1000
+        ) {
+          continue
+        }
+      } catch {
+        // Invalid stale records are swept below.
+      }
       // Stale file from a crashed session — sweep it. Skip on WSL: if
       // ~/.claude/sessions/ is shared with Windows-native Claude (symlink
       // or CLAUDE_CONFIG_DIR), a Windows PID won't be probeable from WSL

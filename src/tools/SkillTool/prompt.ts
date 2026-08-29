@@ -187,6 +187,8 @@ How to invoke:
 
 Important:
 - Available skills are listed in system-reminder messages in the conversation
+- Only exact skill names from the available-skills list are valid
+- Do not guess or invent skill names
 - When a skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke the relevant Skill tool BEFORE generating any other response about the task
 - NEVER mention a skill without actually calling this tool
 - Do not invoke a skill that is already running

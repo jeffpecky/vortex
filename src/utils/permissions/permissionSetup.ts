@@ -6,6 +6,8 @@ import {
   handlePlanModeTransition,
   setHasExitedPlanMode,
   setNeedsAutoModeExitAttachment,
+  getIsInteractive,
+  getClientType,
 } from '../../bootstrap/state.js'
 import type {
   ToolPermissionContext,
@@ -61,6 +63,7 @@ import { modelSupportsAutoMode } from '../betas.js'
 import { logForDebugging } from '../debug.js'
 import { gracefulShutdown } from '../gracefulShutdown.js'
 import { getMainLoopModel } from '../model/model.js'
+import { getSubscriptionType } from '../auth.js'
 import {
   CROSS_PLATFORM_CODE_EXEC,
   DANGEROUS_BASH_PATTERNS,
@@ -796,6 +799,17 @@ export function initialPermissionModeFromCLI({
   }
 
   if (!result) {
+    if (
+      !dangerouslySkipPermissions &&
+      !permissionModeCli &&
+      !settings.permissions?.defaultMode &&
+      shouldUseBuiltInAutoModeDefault()
+    ) {
+      result = { mode: 'auto', notification }
+    }
+  }
+
+  if (!result) {
     result = { mode: 'default', notification }
   }
 
@@ -1266,6 +1280,19 @@ export function shouldDisableBypassPermissions(): Promise<boolean> {
   return checkSecurityRestrictionGate('tengu_disable_bypass_permissions_mode')
 }
 
+export function shouldUseBuiltInAutoModeDefault(): boolean {
+  if (!feature('TRANSCRIPT_CLASSIFIER')) return false
+  return (
+    getIsInteractive() &&
+    !isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) &&
+    ['cli', 'claude-vscode'].includes(getClientType()) &&
+    ['pro', 'max', 'team'].includes(getSubscriptionType() ?? '') &&
+    getAutoModeEnabledStateIfCached() === 'enabled' &&
+    !isAutoModeDisabledBySettings() &&
+    modelSupportsAutoMode(getMainLoopModel())
+  )
+}
+
 function isAutoModeDisabledBySettings(): boolean {
   const settings = getSettings_DEPRECATED() || {}
   return (
@@ -1310,7 +1337,7 @@ export function getAutoModeUnavailableReason(): AutoModeUnavailableReason | null
  */
 export type AutoModeEnabledState = 'enabled' | 'disabled' | 'opt-in'
 
-const AUTO_MODE_ENABLED_DEFAULT: AutoModeEnabledState = 'disabled'
+const AUTO_MODE_ENABLED_DEFAULT: AutoModeEnabledState = 'enabled'
 
 function parseAutoModeEnabledState(value: unknown): AutoModeEnabledState {
   if (value === 'enabled' || value === 'disabled' || value === 'opt-in') {
@@ -1321,7 +1348,7 @@ function parseAutoModeEnabledState(value: unknown): AutoModeEnabledState {
 
 /**
  * Reads the `enabled` field from tengu_auto_mode_config (cached, may be stale).
- * Defaults to 'disabled' if GrowthBook is unavailable or the field is unset.
+ * Defaults to 'enabled' if GrowthBook is unavailable or the field is unset.
  * Other surfaces (IDE, Desktop) should call this to decide whether to surface
  * auto mode in their mode pickers.
  */

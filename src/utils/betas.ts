@@ -156,16 +156,10 @@ export function modelSupportsStructuredOutputs(model: string): boolean {
   )
 }
 
-// @[MODEL LAUNCH]: Add the new model if it supports auto mode (specifically PI probes) — ask in #proj-claude-code-safety-research.
+// @[MODEL LAUNCH]: Keep aligned with current auto-mode provider requirements.
 export function modelSupportsAutoMode(model: string): boolean {
   if (feature('TRANSCRIPT_CLASSIFIER')) {
     const m = getCanonicalName(model)
-    // External: firstParty-only at launch (PI probes not wired for
-    // Bedrock/Vertex/Foundry yet). Checked before allowModels so the GB
-    // override can't enable auto mode on unsupported providers.
-    if (process.env.USER_TYPE !== 'ant' && getAPIProvider() !== 'firstParty') {
-      return false
-    }
     // GrowthBook override: tengu_auto_mode_config.allowModels force-enables
     // auto mode for listed models, bypassing the denylist/allowlist below.
     // Exact model IDs (e.g. "claude-strudel-v6-p") match only that model;
@@ -188,8 +182,21 @@ export function modelSupportsAutoMode(model: string): boolean {
       if (/claude-(opus|sonnet|haiku)-4(?!-[6-9])/.test(m)) return false
       return true
     }
-    // External allowlist (firstParty already checked above).
-    return /^claude-(opus|sonnet)-4-6/.test(m)
+
+    const match = rawLower.match(
+      /claude-(opus|sonnet|fable)-(\d+)(?:-(\d+))?/,
+    )
+    if (!match) return false
+    const family = match[1]
+    const major = Number(match[2])
+    const minor = Number(match[3] ?? 0)
+
+    if (family === 'fable') return major >= 5
+    if (getAPIProvider() === 'firstParty') {
+      return major > 4 || (major === 4 && minor >= 6)
+    }
+    if (family === 'sonnet') return major >= 5
+    return major > 4 || (major === 4 && minor >= 7)
   }
   return false
 }

@@ -1,5 +1,6 @@
 import { feature } from 'bun:bundle'
 import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
+import { registerAcademyGuideSkill } from './academyGuide.js'
 import { registerAlgorithmicArtSkill } from './algorithmicArt.js'
 import { registerBatchSkill } from './batch.js'
 import { registerBrandGuidelinesSkill } from './brandGuidelines.js'
@@ -7,6 +8,7 @@ import { registerCanvasDesignSkill } from './canvasDesign.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
 import { registerCloudflareDeploySkill } from './cloudflareDeploy.js'
 import { registerDebugSkill } from './debug.js'
+import { registerDiscernmentNudgeSkill } from './discernmentNudge.js'
 import { registerDocCoauthoringSkill } from './docCoauthoring.js'
 import { registerDocxSkill } from './docx.js'
 import { registerFrontendDesignSkill } from './frontendDesign.js'
@@ -44,37 +46,37 @@ import { registerXlsxSkill } from './xlsx.js'
  * 3. Import and call that function here
  */
 export function initBundledSkills(): void {
-  registerUpdateConfigSkill()
-  registerKeybindingsSkill()
-  registerVerifySkill()
-  registerDebugSkill()
-  registerLoremIpsumSkill()
-  registerSkillifySkill()
-  registerRememberSkill()
-  registerSimplifySkill()
-  registerBatchSkill()
-  registerStuckSkill()
-  
-  // Skills from external skills repository
+  registerAcademyGuideSkill()
   registerAlgorithmicArtSkill()
+  registerBatchSkill()
   registerBrandGuidelinesSkill()
   registerCanvasDesignSkill()
   registerCloudflareDeploySkill()
+  registerDebugSkill()
+  registerDiscernmentNudgeSkill()
   registerDocCoauthoringSkill()
   registerDocxSkill()
   registerFrontendDesignSkill()
   registerInternalCommsSkill()
+  registerKeybindingsSkill()
+  registerLoremIpsumSkill()
   registerMcpBuilderSkill()
   registerNetlifyDeploySkill()
   registerPdfSkill()
   registerPptxSkill()
+  registerRememberSkill()
   registerRenderDeploySkill()
   registerSecurityBestPracticesSkill()
   registerSecurityThreatModelSkill()
+  registerSimplifySkill()
   registerSkillCreatorSkill()
+  registerSkillifySkill()
   registerSlackGifCreatorSkill()
+  registerStuckSkill()
   registerThemeFactorySkill()
+  registerUpdateConfigSkill()
   registerVercelDeploySkill()
+  registerVerifySkill()
   registerWebArtifactsBuilderSkill()
   registerWebappTestingSkill()
   registerXlsxSkill()

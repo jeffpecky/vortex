@@ -7,14 +7,16 @@ import { z } from 'zod/v4'
 import {
   getCachedClaudeMdContent,
   getLastClassifierRequests,
+  getSessionClassifierModel,
   getSessionId,
   setLastClassifierRequests,
+  setSessionClassifierModel,
 } from '../../bootstrap/state.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { logEvent } from '../../services/analytics/index.js'
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/metadata.js'
 import { getCacheControl } from '../../services/api/claude.js'
-import { parsePromptTooLongTokenCounts } from '../../services/api/errors.js'
+import { isModelUnavailableError, parsePromptTooLongTokenCounts } from '../../services/api/errors.js'
 import { getDefaultMaxRetries } from '../../services/api/withRetry.js'
 import type { Tool, ToolPermissionContext, Tools } from '../../Tool.js'
 import type { Message } from '../../types/message.js'
@@ -28,7 +30,10 @@ import { errorMessage } from '../errors.js'
 import { lazySchema } from '../lazySchema.js'
 import { extractTextContent } from '../messages.js'
 import { resolveAntModel } from '../model/antModels.js'
+import { CLAUDE_SONNET_4_6_CONFIG } from '../model/configs.js'
 import { getMainLoopModel } from '../model/model.js'
+import { isModelAllowed } from '../model/modelAllowlist.js'
+import { getAPIProvider } from '../model/providers.js'
 import { getAutoModeConfig } from '../settings/settings.js'
 import { sideQuery } from '../sideQuery.js'
 import { jsonStringify } from '../slowOperations.js'
@@ -715,7 +720,7 @@ async function classifyYoloActionXml(
   userContentBlocks: Array<
     Anthropic.TextBlockParam | Anthropic.ImageBlockParam
   >,
-  model: string,
+  initialModel: string,
   promptLengths: {
     systemPrompt: number
     toolCalls: number
@@ -752,7 +757,7 @@ async function classifyYoloActionXml(
   let stage1MsgId: string | undefined
   let stage1Opts: Parameters<typeof sideQuery>[0] | undefined
   const overallStart = Date.now()
-  const [disableThinking, thinkingPadding] = getClassifierThinkingConfig(model)
+  let model = initialModel
 
   // Wrap transcript entries in <transcript> tags for the XML classifier.
   // Wrap all content (transcript + action) in <transcript> tags.
@@ -776,23 +781,35 @@ async function classifyYoloActionXml(
       ]
       // In fast-only mode, relax max_tokens and drop stop_sequences so the
       // response can carry a <reason> tag (system prompt already asks for it).
-      stage1Opts = {
+      const stage1Query = await runClassifierQuery(
+        queryModel => {
+          const [disableThinking, thinkingPadding] =
+            getClassifierThinkingConfig(queryModel)
+          return {
+            model: queryModel,
+            max_tokens: (mode === 'fast' ? 256 : 64) + thinkingPadding,
+            system: systemBlocks,
+            skipSystemPromptPrefix: true,
+            temperature: 0,
+            thinking: disableThinking,
+            messages: [
+              ...prefixMessages,
+              { role: 'user' as const, content: stage1Content },
+            ],
+            maxRetries: getDefaultMaxRetries(),
+            signal,
+            ...(mode !== 'fast' && { stop_sequences: ['</block>'] }),
+            querySource: 'auto_mode' as const,
+          }
+        },
         model,
-        max_tokens: (mode === 'fast' ? 256 : 64) + thinkingPadding,
-        system: systemBlocks,
-        skipSystemPromptPrefix: true,
-        temperature: 0,
-        thinking: disableThinking,
-        messages: [
-          ...prefixMessages,
-          { role: 'user' as const, content: stage1Content },
-        ],
-        maxRetries: getDefaultMaxRetries(),
-        signal,
-        ...(mode !== 'fast' && { stop_sequences: ['</block>'] }),
-        querySource: 'auto_mode',
-      }
-      const stage1Raw = await sideQuery(stage1Opts)
+        attemptedModel => {
+          model = attemptedModel
+        },
+      )
+      model = stage1Query.model
+      stage1Opts = stage1Query.options
+      const stage1Raw = stage1Query.result
       stage1DurationMs = Date.now() - stage1Start
       stage1Usage = extractUsage(stage1Raw)
       stage1RequestId = extractRequestId(stage1Raw)
@@ -863,22 +880,34 @@ async function classifyYoloActionXml(
       ...wrappedContent,
       { type: 'text' as const, text: XML_S2_SUFFIX },
     ]
-    const stage2Opts = {
+    const stage2Query = await runClassifierQuery(
+      queryModel => {
+        const [disableThinking, thinkingPadding] =
+          getClassifierThinkingConfig(queryModel)
+        return {
+          model: queryModel,
+          max_tokens: 4096 + thinkingPadding,
+          system: systemBlocks,
+          skipSystemPromptPrefix: true,
+          temperature: 0,
+          thinking: disableThinking,
+          messages: [
+            ...prefixMessages,
+            { role: 'user' as const, content: stage2Content },
+          ],
+          maxRetries: getDefaultMaxRetries(),
+          signal,
+          querySource: 'auto_mode' as const,
+        }
+      },
       model,
-      max_tokens: 4096 + thinkingPadding,
-      system: systemBlocks,
-      skipSystemPromptPrefix: true,
-      temperature: 0,
-      thinking: disableThinking,
-      messages: [
-        ...prefixMessages,
-        { role: 'user' as const, content: stage2Content },
-      ],
-      maxRetries: getDefaultMaxRetries(),
-      signal,
-      querySource: 'auto_mode' as const,
-    }
-    const stage2Raw = await sideQuery(stage2Opts)
+      attemptedModel => {
+        model = attemptedModel
+      },
+    )
+    model = stage2Query.model
+    const stage2Opts = stage2Query.options
+    const stage2Raw = stage2Query.result
     const stage2DurationMs = Date.now() - stage2Start
     const stage2Usage = extractUsage(stage2Raw)
     const stage2RequestId = extractRequestId(stage2Raw)
@@ -1105,7 +1134,7 @@ export async function classifyYoloAction(
     cache_control: cacheControl,
   })
 
-  const model = getClassifierModel()
+  let model = getClassifierModel()
 
   // Dispatch to 2-stage XML classifier if enabled via GrowthBook
   if (isTwoStageClassifierEnabled()) {
@@ -1128,36 +1157,47 @@ export async function classifyYoloAction(
       getTwoStageMode(),
     )
   }
-  const [disableThinking, thinkingPadding] = getClassifierThinkingConfig(model)
   try {
     const start = Date.now()
-    const sideQueryOpts = {
-      model,
-      max_tokens: 4096 + thinkingPadding,
-      system: [
-        {
-          type: 'text' as const,
-          text: systemPrompt,
-          cache_control: getCacheControl({ querySource: 'auto_mode' }),
-        },
-      ],
-      skipSystemPromptPrefix: true,
-      temperature: 0,
-      thinking: disableThinking,
-      messages: [
-        ...prefixMessages,
-        { role: 'user' as const, content: userContentBlocks },
-      ],
-      tools: [YOLO_CLASSIFIER_TOOL_SCHEMA],
-      tool_choice: {
-        type: 'tool' as const,
-        name: YOLO_CLASSIFIER_TOOL_NAME,
+    const query = await runClassifierQuery(
+      queryModel => {
+        const [disableThinking, thinkingPadding] =
+          getClassifierThinkingConfig(queryModel)
+        return {
+          model: queryModel,
+          max_tokens: 4096 + thinkingPadding,
+          system: [
+            {
+              type: 'text' as const,
+              text: systemPrompt,
+              cache_control: getCacheControl({ querySource: 'auto_mode' }),
+            },
+          ],
+          skipSystemPromptPrefix: true,
+          temperature: 0,
+          thinking: disableThinking,
+          messages: [
+            ...prefixMessages,
+            { role: 'user' as const, content: userContentBlocks },
+          ],
+          tools: [YOLO_CLASSIFIER_TOOL_SCHEMA],
+          tool_choice: {
+            type: 'tool' as const,
+            name: YOLO_CLASSIFIER_TOOL_NAME,
+          },
+          maxRetries: getDefaultMaxRetries(),
+          signal,
+          querySource: 'auto_mode' as const,
+        }
       },
-      maxRetries: getDefaultMaxRetries(),
-      signal,
-      querySource: 'auto_mode' as const,
-    }
-    const result = await sideQuery(sideQueryOpts)
+      model,
+      attemptedModel => {
+        model = attemptedModel
+      },
+    )
+    model = query.model
+    const result = query.result
+    const sideQueryOpts = query.options
     void maybeDumpAutoMode(sideQueryOpts, result, start)
     setLastClassifierRequests([sideQueryOpts])
     const durationMs = Date.now() - start
@@ -1326,12 +1366,57 @@ type AutoModeConfig = {
   jsonlTranscript?: boolean
 }
 
+const DEFAULT_CLASSIFIER_MODEL = 'claude-sonnet-5'
+
+type ClassifierQueryOptions = Parameters<typeof sideQuery>[0]
+type ClassifierQueryResult = Awaited<ReturnType<typeof sideQuery>>
+
+async function runClassifierQuery(
+  createOptions: (model: string) => ClassifierQueryOptions,
+  candidateModel: string,
+  onModelAttempt?: (model: string) => void,
+): Promise<{
+  result: ClassifierQueryResult
+  model: string
+  options: ClassifierQueryOptions
+}> {
+  const latchedModel = getSessionClassifierModel()
+  const run = async (model: string) => {
+    onModelAttempt?.(model)
+    const options = createOptions(model)
+    const result = await sideQuery(options)
+    setSessionClassifierModel(model)
+    return { result, model, options }
+  }
+
+  try {
+    return await run(candidateModel)
+  } catch (error) {
+    const fallbackModel = getMainLoopModel()
+    if (
+      latchedModel === undefined &&
+      fallbackModel !== candidateModel &&
+      isModelUnavailableError(error)
+    ) {
+      logForDebugging(
+        `[auto-mode] classifier model ${candidateModel} unavailable; retrying with ${fallbackModel}`,
+        { level: 'warn' },
+      )
+      return run(fallbackModel)
+    }
+    throw error
+  }
+}
+
 /**
- * Get the model for the classifier.
- * Ant-only env var takes precedence, then GrowthBook JSON config override,
- * then the main loop model.
+ * Get the session-stable classifier model. Sonnet 5 is preferred on the
+ * first-party API; unsupported or unavailable models fall back to the session
+ * model on the first real classifier request.
  */
 function getClassifierModel(): string {
+  const latchedModel = getSessionClassifierModel()
+  if (latchedModel) return latchedModel
+
   if (process.env.USER_TYPE === 'ant') {
     const envModel = process.env.CLAUDE_CODE_AUTO_MODE_MODEL
     if (envModel) return envModel
@@ -1340,10 +1425,19 @@ function getClassifierModel(): string {
     'tengu_auto_mode_config',
     {} as AutoModeConfig,
   )
-  if (config?.model) {
-    return config.model
+  if (config?.model) return config.model
+
+  const mainLoopModel = getMainLoopModel()
+  if (mainLoopModel.startsWith(CLAUDE_SONNET_4_6_CONFIG.firstParty)) {
+    return mainLoopModel
   }
-  return getMainLoopModel()
+  if (
+    getAPIProvider() === 'firstParty' &&
+    isModelAllowed(DEFAULT_CLASSIFIER_MODEL)
+  ) {
+    return DEFAULT_CLASSIFIER_MODEL
+  }
+  return mainLoopModel
 }
 
 /**

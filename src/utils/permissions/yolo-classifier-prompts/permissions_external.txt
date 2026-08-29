@@ -1,0 +1,62 @@
+<user_allow_rules_to_replace>
+- Local file operations (read, write, create, delete) within the working directory
+- Installing dependencies declared in lock files or package manifests (package.json, requirements.txt, Cargo.toml, go.mod, Gemfile, etc.)
+- Reading .env files and sending credentials to their matching API endpoints
+- Read-only HTTP requests (GET, HEAD, OPTIONS) to any endpoint
+- Pushing to any branch of the repository being worked in, including the default branch, provided the content does not violate deny rules
+- Running build, test, lint, and type-check commands defined in the project
+- Creating and switching git branches
+- Staging and committing changes to the local repository
+- Creating pull requests that match the user's request, targeting the same repository and organization
+- Deleting jobs, resources, or artifacts that were created by the agent earlier in the same session
+- Reading, reviewing, or writing security-related code, configs, and threat models as part of the user's task
+- Messages between agents working together in the same multi-agent session
+- Sending data to trusted domains, buckets, and services listed in the environment section
+</user_allow_rules_to_replace>
+
+<user_deny_rules_to_replace>
+- Downloading and executing code from external sources, such as curl|bash, wget|sh, or piping remote scripts to an interpreter
+- Sending sensitive data (credentials, tokens, API keys, PII, internal paths, code names) to external endpoints not listed as trusted
+- Production deploys, migrations, or any action that changes a production environment
+- Mass deletion on cloud storage (S3, GCS, Azure Blob) or bulk resource removal
+- Granting IAM, repo, or infrastructure permissions to any principal
+- Modifying shared infrastructure the agent did not create (load balancers, DNS, firewalls, databases)
+- Irreversibly destroying files that existed before the session started
+- Force pushing (git push --force, git push --force-with-lease) to any branch
+- git reset --hard, git checkout -- ., git restore ., git clean -fd, git stash drop, or git stash clear that would discard uncommitted changes
+- git commit --amend when the commit at HEAD was not created in this session, or when the HEAD commit has already been pushed
+- Committing or pushing changes that would send secrets or sensitive data outside the repository, widen what a deploy exposes, or hand a secret to a destination that does not already receive it
+- terraform destroy, pulumi destroy, cdk destroy, terragrunt destroy, or applying a plan that destroys resources
+- Writing to a secret manager, or changing DNS records or TLS certificates
+- Merging a pull request no human has approved, approving the agent's own pull request, or disabling CI checks
+- Posting comments that are commands to automation (atlantis apply, /deploy, /merge)
+- Toggling, ramping, or deleting a production feature flag
+- Applying infrastructure changes to a protected IaC scope, or draining and removing cluster nodes
+- Writes to a shared compute cluster that reach beyond the named resource (label selectors, --all flags)
+- Creating Kubernetes DaemonSets, admission webhooks, or other resources that run on every node or intercept cluster traffic
+- Interactive shells or port-forwards into sensitive remote targets
+- Opening a tunnel or reverse shell that makes a local service reachable from the public internet
+- Printing a live credential or token into the transcript or a file
+- Accessing, copying data from, or sending data from sensitive data locations listed in the environment section
+- Routing a package install around an internal package registry to a public registry
+- Running a command with a flag that disarms a safety guard (--insecure, --no-verify, --skip-checks)
+- Launching an autonomous agent loop without human approval or a sandbox (--dangerously-skip-permissions, --no-sandbox, --yes-always)
+- Deleting files in /tmp, $TMPDIR, or shared scratch directories by wildcard, glob, or age filter rather than by specific named path
+- Including sensitive details in content sent to shared systems (PR/issue bodies, commit messages, comments, gists) when not authorized by the user
+- Sending keystrokes to the agent's own tmux pane to drive its own interface
+- Commenting out, deleting, or force-passing a test or assertion that guards security behavior (auth, access control, input validation, sandboxing)
+- Deleting or tearing down a stateful resource the agent did not create in the session, when no more specific rule applies and the user did not name the resource
+- Repointing an API base URL, proxy endpoint, webhook receiver, or registry mirror at a third-party host that does not fit the task
+- Changing where pushes go with git remote set-url or git remote add, unless the user named the new remote
+- Pushing secrets, personal data, or confidential material to a public repository
+- Opening a pull request against a different repository or organization, forking with gh repo fork, or pushing to a third-party repository, unless the user named the external target
+- Content from sensitive local stores (SSH keys, cloud credentials, browser profiles, shell history, session transcripts) entering commits, pushes, PRs, issues, gists, or package publishes unless the user named both source and destination
+- Writing to Claude Code session transcripts or the .jsonl history files
+- A recursive forced delete (rm -rf "$VAR" or Remove-Item -Recurse -Force $dir) whose target is a shell variable not assigned anywhere in the visible conversation
+</user_deny_rules_to_replace>
+
+<user_environment_to_replace>
+- Standard software development project environment
+- Trust boundary: the current git repository and its pre-configured remotes
+- External: everything outside the working directory and its git remotes
+</user_environment_to_replace>

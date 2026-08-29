@@ -43,6 +43,10 @@ import { SEND_MESSAGE_TOOL_NAME } from './constants.js'
 import { DESCRIPTION, getPrompt } from './prompt.js'
 import { renderToolResultMessage, renderToolUseMessage } from './UI.js'
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+const autoModeStateModule = feature('TRANSCRIPT_CLASSIFIER') ? require('../../utils/permissions/autoModeState.js') as typeof import('../../utils/permissions/autoModeState.js') : null
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 const StructuredMessage = lazySchema(() =>
   z.discriminatedUnion('type', [
     z.object({
@@ -582,7 +586,7 @@ export const SendMessageTool: Tool<InputSchema, SendMessageToolOutput> =
       }
     },
 
-    async checkPermissions(input, _context) {
+    async checkPermissions(input, context) {
       if (feature('UDS_INBOX') && parseAddress(input.to).scheme === 'bridge') {
         return {
           behavior: 'ask' as const,
@@ -595,6 +599,19 @@ export const SendMessageTool: Tool<InputSchema, SendMessageToolOutput> =
             reason:
               'Cross-machine bridge message requires explicit user consent',
             classifierApprovable: false,
+          },
+        }
+      }
+      if (
+        feature('TRANSCRIPT_CLASSIFIER') &&
+        (autoModeStateModule?.isAutoModeActive() ?? false)
+      ) {
+        return {
+          behavior: 'ask' as const,
+          message: `Send this message to ${input.to}?`,
+          decisionReason: {
+            type: 'mode',
+            mode: context.getAppState().toolPermissionContext.mode,
           },
         }
       }

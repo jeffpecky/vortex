@@ -53,6 +53,24 @@ import { extractConnectionErrorDetails, formatAPIError } from './errorUtils.js'
 
 export const API_ERROR_MESSAGE_PREFIX = 'API Error'
 
+export function isModelUnavailableError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const apiError = error as {
+    status?: unknown
+    message?: unknown
+    error?: { type?: unknown }
+  }
+  if (apiError.status === 404) return true
+  if (
+    apiError.status === 400 &&
+    typeof apiError.message === 'string' &&
+    apiError.message.toLowerCase().includes('invalid model name')
+  ) {
+    return true
+  }
+  return apiError.error?.type === 'not_found_error'
+}
+
 export function startsWithApiErrorPrefix(text: string): boolean {
   return (
     text.startsWith(API_ERROR_MESSAGE_PREFIX) ||

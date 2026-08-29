@@ -3,7 +3,7 @@
  * Build script for Vortex (Claude Code source extraction).
  *
  * Replicates Anthropic's build pipeline:
- * 1. feature() flags resolved via Bun plugin (compile-time replacement)
+ * 1. feature() flags resolved via Bun's native build features (compile-time replacement)
  * 2. MACRO.* constants inlined at compile time
  * 3. Single-file bundle targeting Bun runtime
  *
@@ -21,7 +21,6 @@
  * - src/vendor/ - vendor packages (@ant/, @anthropic-ai/, etc.)
  */
 
-import type { BunPlugin } from 'bun';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
 
@@ -104,12 +103,13 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   BUDDY: true,                       // companion mode
   DUMP_SYSTEM_PROMPT: true,          // --dump-system-prompt flag
   COWORKER_TYPE_TELEMETRY: true,     // telemetry metadata
+  MONITOR_TOOL: true,                // Monitor execution and event batching
+  TRANSCRIPT_CLASSIFIER: true,       // auto-mode classifier prompt templates
 
   // ── INFRA (needs Anthropic cloud) ─────────────────────────────────
   ULTRAPLAN: false,                  // INFRA: spawns remote CCR session on claude.ai
   BRIDGE_MODE: false,                // INFRA: needs bridge server
   CHICAGO_MCP: false,                // INFRA: needs native Swift/Rust binaries
-  TRANSCRIPT_CLASSIFIER: false,      // MISSING: prompt .txt files DCE'd from leak
 
   // ── MISSING SOURCE ────────────────────────────────────────────────
   KAIROS: false,                     // MISSING: src/assistant/index.ts, src/proactive/
@@ -125,27 +125,6 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // ── OFF by design ─────────────────────────────────────────────────
   ABLATION_BASELINE: false,          // DEGRADES quality — never enable
   OVERFLOW_TEST_TOOL: false,         // internal test tool
-};
-
-// ── Bun Plugin: bun:bundle shim ───────────────────────────────────────────
-const bunBundlePlugin: BunPlugin = {
-  name: 'bun-bundle-shim',
-  setup(build) {
-    build.onResolve({ filter: /^bun:bundle$/ }, () => ({
-      path: 'bun:bundle',
-      namespace: 'bun-bundle-shim',
-    }));
-
-    build.onLoad({ filter: /.*/, namespace: 'bun-bundle-shim' }, () => ({
-      contents: `
-        const FLAGS = ${JSON.stringify(FEATURE_FLAGS)};
-        export function feature(name) {
-          return FLAGS[name] ?? false;
-        }
-      `,
-      loader: 'js',
-    }));
-  },
 };
 
 // ── Native addon paths for --compile mode ─────────────────────────────────
@@ -220,7 +199,7 @@ const result = await Bun.build({
   outdir: shouldCompile ? undefined : 'dist',
   target: 'bun',
   sourcemap: 'linked',
-  plugins: [bunBundlePlugin],
+  features: enabledFlags,
   define: {
     'MACRO.VERSION': JSON.stringify(version),
     'MACRO.BUILD_TIME': JSON.stringify(buildTime),

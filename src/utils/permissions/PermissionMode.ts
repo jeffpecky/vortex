@@ -43,10 +43,10 @@ const PERMISSION_MODE_CONFIG: Partial<
   Record<PermissionMode, PermissionModeConfig>
 > = {
   default: {
-    title: 'Default',
-    shortTitle: 'Default',
-    symbol: '',
-    color: 'text',
+    title: 'manual mode',
+    shortTitle: 'manual',
+    symbol: PAUSE_ICON,
+    color: 'permission',
     external: 'default',
   },
   plan: {

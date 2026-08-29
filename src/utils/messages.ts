@@ -4187,6 +4187,11 @@ You have exited auto mode. The user may now want to interact more directly. You 
           `The following deferred tools are no longer available (their MCP server disconnected). Do not search for them — ToolSearch will return no match:\n${attachment.removedNames.join('\n')}`,
         )
       }
+      if (attachment.failedNames && attachment.failedNames.length > 0) {
+        parts.push(
+          `The following deferred tools failed to load their definitions and cannot be called:\n${attachment.failedNames.map(name => `- ${name}`).join('\n')}`,
+        )
+      }
       return wrapMessagesInSystemReminder([
         createUserMessage({ content: parts.join('\n\n'), isMeta: true }),
       ])

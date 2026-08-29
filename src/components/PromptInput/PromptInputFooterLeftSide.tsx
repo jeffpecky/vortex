@@ -14,6 +14,7 @@ import type { ToolPermissionContext } from '../../Tool.js';
 import { isVimModeEnabled } from './utils.js';
 import { useShortcutDisplay } from '../../keybindings/useShortcutDisplay.js';
 import { isDefaultMode, permissionModeSymbol, permissionModeTitle, getModeColor } from '../../utils/permissions/PermissionMode.js';
+import { CHANNEL_ARROW } from '../../constants/figures.js';
 import { BackgroundTaskStatus } from '../tasks/BackgroundTaskStatus.js';
 import { isBackgroundTask } from '../../tasks/types.js';
 import { isPanelAgentTask } from '../../tasks/LocalAgentTask/LocalAgentTask.js';
@@ -345,8 +346,8 @@ function ModeIndicator({
   // the local permission mode shown here doesn't reflect the agent's state.
   // Rendered before the tasks pill so a long pill label (e.g. ultraplan URL)
   // doesn't push the mode indicator off-screen.
-  const modePart = currentMode && hasActiveMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode">
-        {permissionModeSymbol(currentMode)}{' '}
+  const modePart = currentMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode">
+        {permissionModeSymbol(currentMode)}{permissionModeSymbol(currentMode) ? ' ' : ''}
         {permissionModeTitle(currentMode).toLowerCase()} on
         {shouldShowModeHint && <Text dimColor>
             {' '}
@@ -406,10 +407,21 @@ function ModeIndicator({
   // reconciler throws on Box-in-Text. Computed here so the empty-checks
   // below still treat "pill present" as non-empty.
   const tasksPart = hasBackgroundTasks && !hasTeammatePills && !shouldHideTasksFooter(tasks, showSpinnerTree) ? <BackgroundTaskStatus tasksSelected={tasksSelected} isViewingTeammate={isViewingTeammate} teammateFooterIndex={teammateFooterIndex} isLeaderIdle={!isLoading} onOpenDialog={onOpenTasksDialog} /> : null;
-  if (parts.length === 0 && !tasksPart && !modePart && showHint) {
-    parts.push(<Text dimColor key="shortcuts-hint">
-        ? for shortcuts
-      </Text>);
+  if (showHint && !isViewingCompletedTeammate) {
+    if (!parts.some(p => React.isValidElement(p) && (p as React.ReactElement).key === 'shortcuts-hint')) {
+      parts.push(
+        <Text dimColor key="shortcuts-hint">
+          ? for shortcuts
+        </Text>
+      );
+    }
+    if (!parts.some(p => React.isValidElement(p) && (p as React.ReactElement).key === 'agents-hint')) {
+      parts.push(
+        <Text dimColor key="agents-hint">
+          {CHANNEL_ARROW} for agents
+        </Text>
+      );
+    }
   }
 
   // Only replace the idle voice hint when there's something to say — otherwise

@@ -679,6 +679,7 @@ export type Attachment =
       addedNames: string[]
       addedLines: string[]
       removedNames: string[]
+      failedNames?: string[]
     }
   | {
       type: 'agent_listing_delta'

@@ -242,7 +242,6 @@ import { SandboxViolationExpandedView } from 'src/components/SandboxViolationExp
 import { useSettingsErrors } from 'src/hooks/notifs/useSettingsErrors.js';
 import { useMcpConnectivityStatus } from 'src/hooks/notifs/useMcpConnectivityStatus.js';
 import { useAutoModeUnavailableNotification } from 'src/hooks/notifs/useAutoModeUnavailableNotification.js';
-import { AUTO_MODE_DESCRIPTION } from 'src/components/AutoModeOptInDialog.js';
 import { useLspInitializationNotification } from 'src/hooks/notifs/useLspInitializationNotification.js';
 import { useLspPluginRecommendation } from 'src/hooks/useLspPluginRecommendation.js';
 import { LspRecommendationMenu } from 'src/components/LspRecommendation/LspRecommendationMenu.js';
@@ -1505,6 +1504,8 @@ export function REPL({
   const [haveShownCostDialog, setHaveShownCostDialog] = useState(getGlobalConfig().hasAcknowledgedCostThreshold);
   const [vimMode, setVimMode] = useState<VimMode>('INSERT');
   const [showBashesDialog, setShowBashesDialog] = useState<string | boolean>(false);
+  const [showBackgroundSessions, setShowBackgroundSessions] = useState(false);
+  const [backgroundSessionsPending, setBackgroundSessionsPending] = useState(false);
   const [isSearchingHistory, setIsSearchingHistory] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
@@ -1518,6 +1519,34 @@ export function REPL({
       setShowBashesDialog(false);
     }
   }, [ultraplanPendingChoice, showBashesDialog]);
+
+  const openBackgroundSessions = useCallback(() => {
+    if (isLoading) {
+      setBackgroundSessionsPending(true);
+      return;
+    }
+    setShowBackgroundSessions(true);
+  }, [isLoading]);
+  const closeBackgroundSessions = useCallback(() => {
+    setBackgroundSessionsPending(false);
+    setShowBackgroundSessions(false);
+  }, []);
+  useEffect(() => {
+    if (
+      !backgroundSessionsPending ||
+      inProgressToolUseIDs.size > 0 ||
+      isShowingLocalJSXCommand
+    ) {
+      return;
+    }
+    setBackgroundSessionsPending(false);
+    setShowBackgroundSessions(true);
+  }, [
+    backgroundSessionsPending,
+    inProgressToolUseIDs,
+    isShowingLocalJSXCommand,
+  ]);
+
   const isTerminalFocused = useTerminalFocus();
   const terminalFocusRef = useRef(isTerminalFocused);
   terminalFocusRef.current = isTerminalFocused;
@@ -1607,36 +1636,6 @@ export function REPL({
   }, [hasRunningTeammates, setMessages]);
 
   // Show auto permissions warning when entering auto mode
-  // (either via Shift+Tab toggle or on startup). Debounced to avoid
-  // flashing when the user is cycling through modes quickly.
-  // Only shown 3 times total across sessions.
-  const safeYoloMessageShownRef = useRef(false);
-  useEffect(() => {
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
-      if (toolPermissionContext.mode !== 'auto') {
-        safeYoloMessageShownRef.current = false;
-        return;
-      }
-      if (safeYoloMessageShownRef.current) return;
-      const config = getGlobalConfig();
-      const count = config.autoPermissionsNotificationCount ?? 0;
-      if (count >= 3) return;
-      const timer = setTimeout((ref, setMessages) => {
-        ref.current = true;
-        saveGlobalConfig(prev => {
-          const prevCount = prev.autoPermissionsNotificationCount ?? 0;
-          if (prevCount >= 3) return prev;
-          return {
-            ...prev,
-            autoPermissionsNotificationCount: prevCount + 1
-          };
-        });
-        setMessages(prev => [...prev, createSystemMessage(AUTO_MODE_DESCRIPTION, 'warning')]);
-      }, 800, safeYoloMessageShownRef, setMessages);
-      return () => clearTimeout(timer);
-    }
-  }, [toolPermissionContext.mode, setMessages]);
-
   // If worktree creation was slow and sparse-checkout isn't configured,
   // nudge the user toward settings.worktree.sparsePaths.
   const worktreeTipShownRef = useRef(false);
@@ -4391,7 +4390,10 @@ export function REPL({
   // Guard onOpenBackgroundTasks when a local-jsx dialog (e.g. /mcp) is open —
   // otherwise Shift+Down stacks BackgroundTasksDialog on top and deadlocks input.
   useBackgroundTaskNavigation({
-    onOpenBackgroundTasks: isShowingLocalJSXCommand ? undefined : () => setShowBashesDialog(true)
+    onOpenBackgroundTasks:
+      isShowingLocalJSXCommand || showBackgroundSessions || backgroundSessionsPending
+        ? undefined
+        : () => setShowBashesDialog(true)
   });
   // Auto-exit viewing mode when teammate completes or errors
   useTeammateViewAutoExit();
@@ -4908,7 +4910,7 @@ export function REPL({
                       {}
                       <PromptInput debug={debug} ideSelection={ideSelection} hasSuppressedDialogs={!!hasSuppressedDialogs} isLocalJSXCommandActive={isShowingLocalJSXCommand} getToolUseContext={getToolUseContext} toolPermissionContext={toolPermissionContext} setToolPermissionContext={setToolPermissionContext} apiKeyStatus={apiKeyStatus} commands={commands} agents={agentDefinitions.activeAgents} isLoading={isLoading} onExit={handleExit} verbose={verbose} messages={messages} onAutoUpdaterResult={setAutoUpdaterResult} autoUpdaterResult={autoUpdaterResult} input={inputValue} onInputChange={setInputValue} mode={inputMode} onModeChange={setInputMode} stashedPrompt={stashedPrompt} setStashedPrompt={setStashedPrompt} submitCount={submitCount} onShowMessageSelector={handleShowMessageSelector} onMessageActionsEnter={
             // Works during isLoading — edit cancels first; uuid selection survives appends.
-            true && isFullscreenEnvEnabled() && !disableMessageActions ? enterMessageActions : undefined} mcpClients={mcpClients} pastedContents={pastedContents} setPastedContents={setPastedContents} vimMode={vimMode} setVimMode={setVimMode} showBashesDialog={showBashesDialog} setShowBashesDialog={setShowBashesDialog} onSubmit={onSubmit} onAgentSubmit={onAgentSubmit} isSearchingHistory={isSearchingHistory} setIsSearchingHistory={setIsSearchingHistory} helpOpen={isHelpOpen} setHelpOpen={setIsHelpOpen} insertTextRef={true ? insertTextRef : undefined} voiceInterimRange={voice.interimRange} />
+            true && isFullscreenEnvEnabled() && !disableMessageActions ? enterMessageActions : undefined} mcpClients={mcpClients} pastedContents={pastedContents} setPastedContents={setPastedContents} vimMode={vimMode} setVimMode={setVimMode} showBashesDialog={showBashesDialog} setShowBashesDialog={setShowBashesDialog} showBackgroundSessions={showBackgroundSessions} backgroundSessionsPending={backgroundSessionsPending} onOpenBackgroundSessions={openBackgroundSessions} onCloseBackgroundSessions={closeBackgroundSessions} onSubmit={onSubmit} onAgentSubmit={onAgentSubmit} isSearchingHistory={isSearchingHistory} setIsSearchingHistory={setIsSearchingHistory} helpOpen={isHelpOpen} setHelpOpen={setIsHelpOpen} insertTextRef={true ? insertTextRef : undefined} voiceInterimRange={voice.interimRange} />
                       <SessionBackgroundHint onBackgroundSession={handleBackgroundSession} isLoading={isLoading} />
                     </>}
                 {cursor &&

@@ -1397,14 +1397,12 @@ async function run(): Promise<CommanderCommand> {
     setSessionBypassPermissionsMode(permissionMode === 'bypassPermissions');
     if (feature('TRANSCRIPT_CLASSIFIER')) {
       // autoModeFlagCli is the "did the user intend auto this session" signal.
-      // Set when: --enable-auto-mode, --permission-mode auto, resolved mode
-      // is auto, OR settings defaultMode is auto but the gate denied it
-      // (permissionMode resolved to default with no explicit CLI override).
-      // Used by verifyAutoModeGateAccess to decide whether to notify on
-      // auto-unavailable, and by tengu_auto_mode_config opt-in carousel.
+      // Set for explicit sources only: --enable-auto-mode, --permission-mode auto,
+      // or settings defaultMode is auto. Built-in auto default does NOT count
+      // as explicit intent — it's a platform default, not user choice.
       if ((options as {
         enableAutoMode?: boolean;
-      }).enableAutoMode || permissionModeCli === 'auto' || permissionMode === 'auto' || !permissionModeCli && isDefaultPermissionModeAuto()) {
+      }).enableAutoMode || permissionModeCli === 'auto' || !permissionModeCli && isDefaultPermissionModeAuto()) {
         autoModeStateModule?.setAutoModeFlagCli(true);
       }
     }

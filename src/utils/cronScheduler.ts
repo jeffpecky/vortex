@@ -232,6 +232,20 @@ export function createCronScheduler(
     if (isLoading() && !assistantMode) return
     const now = Date.now()
     const seen = new Set<string>()
+
+    // Handle dynamic wakeups (self-paced /loop iterations) before cron tasks.
+    // Wakeups are session-only one-shot tasks with fireAt set and isWakeup: true.
+    // Remove before firing to prevent duplicate execution if the tick fires again.
+    const sessionTasks = getSessionCronTasks()
+    const dueWakeups = sessionTasks.filter(t => t.isWakeup && t.fireAt !== undefined && t.fireAt <= now)
+    if (dueWakeups.length > 0) {
+      const wakeupIds = dueWakeups.map(t => t.id)
+      removeSessionCronTasks(wakeupIds)
+      for (const t of dueWakeups) {
+        logForDebugging(`[ScheduledTasks] firing wakeup ${t.id} (prompt: ${t.prompt.slice(0, 80)})`)
+        onFire(t.prompt)
+      }
+    }
     // File-backed recurring tasks that fired this tick. Batched into one
     // markCronTasksFired call after the loop so N fires = one write. Session
     // tasks excluded — they die with the process, no point persisting.

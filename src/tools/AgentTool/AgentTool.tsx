@@ -262,6 +262,11 @@ export const AgentTool = buildTool({
       throw new Error('Agent Teams is not yet available on your plan.');
     }
 
+    // Check subagent depth limit (v2.1.172 contract: max 5 levels deep)
+    if (toolUseContext.agentId && isInForkChild(assistantMessage ? [assistantMessage] : [])) {
+      throw new Error('Forked subagents cannot spawn further subagents. Execute your task directly.');
+    }
+
     // Teammates (in-process or tmux) passing `name` would trigger spawnTeammate()
     // below, but TeamFile.members is a flat array with one leadAgentId — nested
     // teammates land in the roster with no provenance and confuse the lead.
@@ -1282,8 +1287,7 @@ export const AgentTool = buildTool({
 
     // Only route through auto mode classifier when in auto mode
     // In all other modes, auto-approve sub-agent generation
-    // Note: "external" === 'ant' guard enables dead code elimination for external builds
-    if ("external" === 'ant' && appState.toolPermissionContext.mode === 'auto') {
+    if (appState.toolPermissionContext.mode === 'auto') {
       return {
         behavior: 'passthrough',
         message: 'Agent tool requires permission to spawn sub-agents.'

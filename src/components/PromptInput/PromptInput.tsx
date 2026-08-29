@@ -74,7 +74,7 @@ import { logError } from '../../utils/log.js';
 import { isOpus1mMergeEnabled, modelDisplayString } from '../../utils/model/model.js';
 import { setAutoModeActive } from '../../utils/permissions/autoModeState.js';
 import { cyclePermissionMode, getNextPermissionMode } from '../../utils/permissions/getNextPermissionMode.js';
-import { transitionPermissionMode } from '../../utils/permissions/permissionSetup.js';
+import { getAutoModeEnabledStateIfCached, transitionPermissionMode } from '../../utils/permissions/permissionSetup.js';
 import { getPlatform } from '../../utils/platform.js';
 import type { ProcessUserInputContext } from '../../utils/processUserInput/processUserInput.js';
 import { editPromptInEditor } from '../../utils/promptEditor.js';
@@ -105,6 +105,7 @@ import { ModelPicker } from '../ModelPicker.js';
 import { QuickOpenDialog } from '../QuickOpenDialog.js';
 import TextInput from '../TextInput.js';
 import { ThinkingToggle } from '../ThinkingToggle.js';
+import { BackgroundSessionsPanel } from '../BackgroundSessionsPanel.js';
 import { BackgroundTasksDialog } from '../tasks/BackgroundTasksDialog.js';
 import { shouldHideTasksFooter } from '../tasks/taskStatusUtils.js';
 import { TeamsDialog } from '../teams/TeamsDialog.js';
@@ -159,6 +160,10 @@ type Props = {
   setVimMode: (mode: VimMode) => void;
   showBashesDialog: string | boolean;
   setShowBashesDialog: (show: string | boolean) => void;
+  showBackgroundSessions: boolean;
+  backgroundSessionsPending: boolean;
+  onOpenBackgroundSessions: () => void;
+  onCloseBackgroundSessions: () => void;
   onExit: () => void;
   getToolUseContext: (messages: Message[], newMessages: Message[], abortController: AbortController, mainLoopModel: string) => ProcessUserInputContext;
   onSubmit: (input: string, helpers: PromptInputHelpers, speculationAccept?: {
@@ -220,6 +225,10 @@ function PromptInput({
   setVimMode,
   showBashesDialog,
   setShowBashesDialog,
+  showBackgroundSessions,
+  backgroundSessionsPending,
+  onOpenBackgroundSessions,
+  onCloseBackgroundSessions,
   onExit,
   getToolUseContext,
   onSubmit: onSubmitProp,
@@ -1456,9 +1465,6 @@ function PromptInput({
     // not bypass the safety text.
     let isEnteringAutoModeFirstTime = false;
     if (feature('TRANSCRIPT_CLASSIFIER')) {
-      isEnteringAutoModeFirstTime = nextMode === 'auto' && toolPermissionContext.mode !== 'auto' && !hasAutoModeOptIn() && !viewingAgentTaskId; // Only show for primary agent, not subagents
-    }
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
       if (isEnteringAutoModeFirstTime) {
         // Store previous mode so we can revert if user declines
         setPreviousModeBeforeAuto(toolPermissionContext.mode);
@@ -1866,7 +1872,14 @@ function PromptInput({
     // Skip all input handling when a full-screen dialog is open. These dialogs
     // render via early return, but hooks run unconditionally — so without this
     // guard, Escape inside a dialog leaks to the double-press message-selector.
-    if (showTeamsDialog || showQuickOpen || showGlobalSearch || showHistoryPicker) {
+    if (
+      showBackgroundSessions ||
+      backgroundSessionsPending ||
+      showTeamsDialog ||
+      showQuickOpen ||
+      showGlobalSearch ||
+      showHistoryPicker
+    ) {
       return;
     }
 
@@ -1898,6 +1911,12 @@ function PromptInput({
     if (footerItemSelected && char && !key.ctrl && !key.meta && !key.escape && !key.return) {
       onChange(input.slice(0, cursorOffset) + char + input.slice(cursorOffset));
       setCursorOffset(cursorOffset + char.length);
+      return;
+    }
+
+    // Left arrow at cursor position 0, or while loading, opens sessions manager.
+    if (key.leftArrow && (cursorOffset === 0 || isLoading)) {
+      onOpenBackgroundSessions();
       return;
     }
 
@@ -2121,6 +2140,12 @@ function PromptInput({
   // Memoized so the portal useEffect doesn't churn on every PromptInput render.
   const autoModeOptInDialog = useMemo(() => feature('TRANSCRIPT_CLASSIFIER') && showAutoModeOptIn ? <AutoModeOptInDialog onAccept={handleAutoModeOptInAccept} onDecline={handleAutoModeOptInDecline} /> : null, [showAutoModeOptIn, handleAutoModeOptInAccept, handleAutoModeOptInDecline]);
   useSetPromptOverlayDialog(isFullscreenEnvEnabled() ? autoModeOptInDialog : null);
+  if (backgroundSessionsPending) {
+    return <Text dimColor>Backgrounding after the current tool finishes…</Text>;
+  }
+  if (showBackgroundSessions) {
+    return <BackgroundSessionsPanel columns={columns} input={input} onInputChange={trackAndSetInput} onClose={onCloseBackgroundSessions} />;
+  }
   if (showBashesDialog) {
     return <BackgroundTasksDialog onDone={() => setShowBashesDialog(false)} toolUseContext={getToolUseContext(messages, [], new AbortController(), mainLoopModel)} initialDetailTaskId={typeof showBashesDialog === 'string' ? showBashesDialog : undefined} />;
   }

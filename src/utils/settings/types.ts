@@ -377,6 +377,22 @@ export const SettingsSchema = lazySchema(() =>
         .string()
         .optional()
         .describe('Override the default model used by Claude Code'),
+      modelPicker: z
+        .enum(['fast', 'default', 'prompt'])
+        .optional()
+        .describe('Model picker mode configuration'),
+      promptCacheTtl: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('Prompt cache TTL in seconds'),
+      webFetchTtl: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('WebFetch cache TTL in seconds'),
       // Enterprise allowlist of models
       availableModels: z
         .array(z.string())

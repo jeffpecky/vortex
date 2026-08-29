@@ -1,0 +1,51 @@
+<user_allow_rules_to_replace>
+- Local file operations (read, write, create, delete) within the working directory
+- Installing dependencies declared in lock files or package manifests
+- Reading .env files and sending credentials to their matching API endpoints
+- Read-only HTTP requests to any endpoint
+- Pushing to any branch of the repository being worked in, provided the content does not violate deny rules
+- Running build, test, lint, and type-check commands defined in the project
+- Creating and switching git branches
+- Staging and committing changes to the local repository
+- Creating pull requests that match the user's request
+- Deleting jobs or artifacts created by the agent earlier in the same session
+- Reading, reviewing, or writing security-related code and configs as part of the user's task
+- Messages between agents working together in the same multi-agent session
+- Sending data to trusted internal domains, buckets, and services listed in the environment section
+- Accessing internal registries and package mirrors configured for the environment
+</user_allow_rules_to_replace>
+
+<user_deny_rules_to_replace>
+- Destructive system-level commands (rm -rf /, formatting disks, terminating critical system processes)
+- Accessing or modifying internal infrastructure without authorization
+- Downloading and executing code from external sources (curl|bash, wget|sh)
+- Sending sensitive data to endpoints outside the internal network
+- Production deploys, migrations, or changes to production environments
+- Mass deletion on cloud storage or bulk resource removal
+- Granting IAM, repo, or infrastructure permissions
+- Modifying shared infrastructure the agent did not create
+- Irreversibly destroying files that existed before the session
+- Force pushing to any branch
+- git reset --hard, git checkout -- ., git restore ., git clean -fd, git stash drop, or git stash clear
+- git commit --amend when HEAD was not created in this session or has been pushed
+- Committing or pushing secrets or sensitive data outside the repository
+- terraform destroy, pulumi destroy, cdk destroy, terragrunt destroy
+- Writing to secret managers, changing DNS records or TLS certificates
+- Merging unreviewed PRs, approving own PRs, disabling CI checks
+- Posting automation commands (atlantis apply, /deploy, /merge)
+- Toggling or deleting production feature flags
+- Infrastructure changes to protected IaC scopes, draining cluster nodes
+- Creating DaemonSets, admission webhooks, or cluster-wide intercept resources
+- Opening tunnels or reverse shells to the public internet
+- Printing live credentials or tokens
+- Routing package installs around internal registries to public registries
+- Running commands with safety-disabling flags (--insecure, --no-verify)
+- Launching autonomous agent loops without approval or sandbox
+- Writing to Claude Code session transcripts or history files
+</user_deny_rules_to_replace>
+
+<user_environment_to_replace>
+- Development sandbox environment
+- Trust boundary: internal development infrastructure and configured remotes
+- Internal registries and mirrors are trusted for package operations
+</user_environment_to_replace>

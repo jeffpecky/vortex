@@ -1,4 +1,6 @@
-// Stub for external builds - classifier permissions feature is ANT-ONLY
+/**
+ * Bash command classifier for auto-mode permission handling.
+ */
 
 export const PROMPT_PREFIX = 'prompt:'
 
@@ -12,9 +14,12 @@ export type ClassifierResult = {
 export type ClassifierBehavior = 'deny' | 'ask' | 'allow'
 
 export function extractPromptDescription(
-  _ruleContent: string | undefined,
+  ruleContent: string | undefined,
 ): string | null {
-  return null
+  if (!ruleContent || !ruleContent.startsWith(PROMPT_PREFIX)) {
+    return null
+  }
+  return ruleContent.slice(PROMPT_PREFIX.length).trim()
 }
 
 export function createPromptRuleContent(description: string): string {
@@ -22,33 +27,86 @@ export function createPromptRuleContent(description: string): string {
 }
 
 export function isClassifierPermissionsEnabled(): boolean {
-  return false
+  return true
 }
 
 export function getBashPromptDenyDescriptions(_context: unknown): string[] {
-  return []
+  return [
+    'destructive system commands (rm -rf /, format, drop database)',
+    'force pushing to main or master branch',
+    'exfiltrating secret tokens or private keys',
+  ]
 }
 
 export function getBashPromptAskDescriptions(_context: unknown): string[] {
-  return []
+  return [
+    'installing new system dependencies or global npm packages',
+    'executing scripts downloaded directly from network',
+  ]
 }
 
 export function getBashPromptAllowDescriptions(_context: unknown): string[] {
-  return []
+  return [
+    'read-only repository status and diff checks (git status, git diff, pwd)',
+    'listing files and searching contents (ls, find, grep, cat)',
+    'running project build, test, and typecheck commands',
+  ]
 }
 
 export async function classifyBashCommand(
-  _command: string,
+  command: string,
   _cwd: string,
-  _descriptions: string[],
-  _behavior: ClassifierBehavior,
+  descriptions: string[],
+  behavior: ClassifierBehavior,
   _signal: AbortSignal,
   _isNonInteractiveSession: boolean,
 ): Promise<ClassifierResult> {
+  const trimmed = command.trim()
+  if (!trimmed) {
+    return {
+      matches: false,
+      confidence: 'high',
+      reason: 'Empty command',
+    }
+  }
+
+  // Basic classification heuristics
+  const lower = trimmed.toLowerCase()
+  const isDestructive =
+    lower.includes('rm -rf') ||
+    lower.includes('mkfs') ||
+    lower.includes('dd if=') ||
+    lower.includes('git reset --hard')
+
+  if (behavior === 'deny' && isDestructive) {
+    return {
+      matches: true,
+      matchedDescription: descriptions[0] ?? 'destructive command',
+      confidence: 'high',
+      reason: 'Matched destructive command pattern',
+    }
+  }
+
+  const isReadOnly =
+    lower.startsWith('git status') ||
+    lower.startsWith('git diff') ||
+    lower.startsWith('ls') ||
+    lower.startsWith('pwd') ||
+    lower.startsWith('grep')
+
+  if (behavior === 'allow' && isReadOnly) {
+    return {
+      matches: true,
+      matchedDescription: descriptions[0] ?? 'read-only inspection',
+      confidence: 'high',
+      reason: 'Matched read-only inspection pattern',
+    }
+  }
+
   return {
     matches: false,
-    confidence: 'high',
-    reason: 'This feature is disabled',
+    confidence: 'medium',
+    reason: 'No explicit classifier rule match',
   }
 }
 

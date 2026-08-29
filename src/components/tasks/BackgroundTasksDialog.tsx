@@ -214,8 +214,8 @@ export function BackgroundTasksDialog({
       mcpMonitors: monitorMcp,
       dreamTasks,
       teammateTasks: [...leaderItem, ...teammates],
-      // Order MUST match JSX render order (teammates \u2192 bash \u2192 monitorMcp \u2192
-      // remote \u2192 agent \u2192 workflows \u2192 dream) so \u2193/\u2191 navigation moves the cursor
+      // Order MUST match JSX render order (teammates → bash → monitorMcp →
+      // remote → agent → workflows → dream) so ↓/↑ navigation moves the cursor
       // visually downward.
       allSelectableItems: [...leaderItem, ...teammates, ...bash, ...monitorMcp, ...remote, ...agent, ...workflows, ...dreamTasks]
     };
